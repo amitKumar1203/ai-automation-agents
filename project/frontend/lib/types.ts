@@ -47,6 +47,18 @@ export type IntakeCategory =
   | "general_inquiry"
   | "unclassified";
 
+/** Phase 3 vision agent statuses. */
+export type Phase3Status =
+  | "READY_FOR_REVIEW"
+  | "APPROVED_INTERNAL"
+  | "READY_FOR_EXTERNAL_SHARE"
+  | "NEEDS_REVISION"
+  | "ANALYZED"
+  | "ISSUES_FOUND"
+  | "PASS"
+  | "FAIL"
+  | "NEEDS_REVIEW";
+
 /** Union of all agent status values used by StatusPill. */
 export type AgentStatus =
   | ThreadStatus
@@ -56,7 +68,9 @@ export type AgentStatus =
   | FollowUpStatus
   | StorefrontStatus
   | InstallerStatus
-  | IntakeCategory;
+  | IntakeCategory
+  | Phase3Status
+  | "LOW_CONFIDENCE";
 
 /** Sender category from Gmail domain matching. */
 export type EmailSenderType = "team" | "internal" | "client";
@@ -413,6 +427,9 @@ export interface ArtworkVisionResult {
   final_approval_needed?: boolean | null;
 }
 
+/** Response from Phase 3 vision agent endpoints. */
+export type Phase3VisionResult = ArtworkVisionResult;
+
 /** Agent result snapshot stored in the audit log. */
 export interface AuditLogResult {
   data: Record<string, unknown>;
@@ -467,4 +484,54 @@ export interface DashboardOverview {
   };
   write_back_mode: string;
   kpis: Record<string, Record<string, unknown>>;
+}
+
+/** Live supervisor status from GET /api/supervisor/status. */
+export interface SupervisorStatus {
+  ok: boolean;
+  pending_approval_count: number;
+  pending_by_agent: Record<string, number>;
+  last_run_by_agent: Record<string, string>;
+  recent_failures: AuditLogEntry[];
+  open_escalations: AuditLogEntry[];
+  queue: {
+    totals?: Record<string, number>;
+    by_queue?: Record<string, Record<string, number>>;
+  };
+  write_back_mode: string;
+  kpis: Record<string, Record<string, unknown>>;
+  event_sources: string[];
+}
+
+/** Background job row from GET /api/supervisor/jobs. */
+export interface SupervisorJob {
+  id: string;
+  queue: string;
+  job_type: string;
+  status: string;
+  attempts: number;
+  max_attempts: number;
+  last_error: string | null;
+  agent_name?: string | null;
+  entry_id?: string | null;
+  payload?: Record<string, unknown>;
+}
+
+export interface SupervisorJobsResponse {
+  ok: boolean;
+  total: number;
+  jobs: SupervisorJob[];
+}
+
+/** End-to-end task view from GET /api/supervisor/tasks/{task_id}. */
+export interface SupervisorTaskStatus {
+  task_id: string;
+  found: boolean;
+  latest: AuditLogEntry | null;
+  audit_entries: AuditLogEntry[];
+  jobs: SupervisorJob[];
+  has_escalation: boolean;
+  pending_approval: boolean;
+  execution_status: string | null;
+  approval_status: string | null;
 }

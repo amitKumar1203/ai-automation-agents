@@ -15,6 +15,7 @@ from integrations.email_templates import (
     build_email_overdue_notify,
     build_followup_owner_email,
     build_installer_owner_email,
+    build_phase3_owner_email,
     build_vendor_owner_email,
 )
 from supervisor.write_back import (
@@ -92,6 +93,24 @@ def execute_approved_action(
                 data,
                 mode=mode,
                 send_email=send_email,
+            )
+        elif agent_name == "ai_rendering":
+            outcome = _execute_rendering_notify(data, mode=mode, send_email=send_email)
+        elif agent_name == "ai_mockup":
+            outcome = _execute_mockup_share(data, mode=mode, send_email=send_email)
+        elif agent_name == "photo_analysis":
+            outcome = _execute_photo_analysis(
+                data,
+                mode=mode,
+                send_email=send_email,
+                update_monday_column=update_monday_column,
+            )
+        elif agent_name == "installation_qc":
+            outcome = _execute_installation_qc(
+                data,
+                mode=mode,
+                send_email=send_email,
+                update_monday_column=update_monday_column,
             )
         else:
             outcome = {
@@ -583,6 +602,236 @@ def _execute_installer_match(
             subject=subject,
             body_text=body_text,
             body_html=body_html,
+        )
+
+    return {"execution_status": "SUCCESS", "execution_detail": _detail(results)}
+
+
+def _execute_rendering_notify(
+    data: dict[str, Any],
+    *,
+    mode: str,
+    send_email: SendEmailFn | None,
+) -> dict[str, Any]:
+    status = str(data.get("status") or "")
+    if status != "READY_FOR_REVIEW":
+        return {
+            "execution_status": "SKIPPED",
+            "execution_detail": f"Rendering status '{status}' has no write-back",
+        }
+    owner = get_notify_owner_email()
+    project_id = str(data.get("project_id") or "—")
+    planned = {
+        "action": "RENDERING_REVIEW_NOTIFY",
+        "project_id": project_id,
+        "status": status,
+        "notify_owner": owner,
+        "mode": mode,
+    }
+    if not owner:
+        return {
+            "execution_status": "DRY_RUN" if not is_live_write_back() else "SKIPPED",
+            "execution_detail": _detail({**planned, "note": "No NOTIFY_OWNER_EMAIL"}),
+        }
+    if not is_live_write_back():
+        return {"execution_status": "DRY_RUN", "execution_detail": _detail(planned)}
+
+    email_fn = send_email or _default_send_email
+    subject, body_text, body_html = build_phase3_owner_email(
+        agent_label="AI Rendering",
+        project_id=project_id,
+        status=status,
+        headline="Rendering ready for designer review",
+        summary=str(data.get("design_alternatives") or data.get("notes") or ""),
+        rows=[
+            ("Window type", str(data.get("window_type") or "—")),
+            ("Color palette", str(data.get("color_palette") or "—")),
+        ],
+    )
+    effect = email_fn(
+        to=owner, subject=subject, body_text=body_text, body_html=body_html
+    )
+    return {
+        "execution_status": "SUCCESS",
+        "execution_detail": _detail({"planned": planned, "effects": {"email": effect}}),
+    }
+
+
+def _execute_mockup_share(
+    data: dict[str, Any],
+    *,
+    mode: str,
+    send_email: SendEmailFn | None,
+) -> dict[str, Any]:
+    status = str(data.get("status") or "")
+    if status != "READY_FOR_EXTERNAL_SHARE":
+        return {
+            "execution_status": "SKIPPED",
+            "execution_detail": f"Mock-up status '{status}' has no write-back",
+        }
+    owner = get_notify_owner_email()
+    project_id = str(data.get("project_id") or "—")
+    client_email = str(data.get("client_email") or "").strip()
+    planned = {
+        "action": "MOCKUP_EXTERNAL_SHARE_GATE",
+        "project_id": project_id,
+        "client_email": client_email or None,
+        "notify_owner": owner,
+        "mode": mode,
+    }
+    if not owner:
+        return {
+            "execution_status": "DRY_RUN" if not is_live_write_back() else "SKIPPED",
+            "execution_detail": _detail({**planned, "note": "No NOTIFY_OWNER_EMAIL"}),
+        }
+    if not is_live_write_back():
+        return {"execution_status": "DRY_RUN", "execution_detail": _detail(planned)}
+
+    email_fn = send_email or _default_send_email
+    subject, body_text, body_html = build_phase3_owner_email(
+        agent_label="AI Mock-up",
+        project_id=project_id,
+        status=status,
+        headline="Mock-up approved for external share",
+        summary=str(data.get("alignment_notes") or ""),
+        rows=[
+            ("Scale", str(data.get("scale_assessment") or "—")),
+            ("Client email", client_email or "(not provided)"),
+        ],
+    )
+    effect = email_fn(
+        to=owner, subject=subject, body_text=body_text, body_html=body_html
+    )
+    return {
+        "execution_status": "SUCCESS",
+        "execution_detail": _detail({"planned": planned, "effects": {"email": effect}}),
+    }
+
+
+def _execute_photo_analysis(
+    data: dict[str, Any],
+    *,
+    mode: str,
+    send_email: SendEmailFn | None,
+    update_monday_column: UpdateMondayFn | None,
+) -> dict[str, Any]:
+    status = str(data.get("status") or "")
+    if status != "ISSUES_FOUND":
+        return {
+            "execution_status": "SKIPPED",
+            "execution_detail": f"Photo analysis status '{status}' has no write-back",
+        }
+    owner = get_notify_owner_email()
+    item_id = str(data.get("monday_item_id") or "").strip()
+    project_id = str(data.get("project_id") or "—")
+    notes_text = "\n".join(
+        filter(
+            None,
+            [
+                str(data.get("branding_detected") or ""),
+                str(data.get("installation_type") or ""),
+                str(data.get("issues") or ""),
+            ],
+        )
+    )
+    planned = {
+        "action": "PHOTO_ANALYSIS_ISSUES",
+        "project_id": project_id,
+        "monday_item_id": item_id or None,
+        "notify_owner": owner,
+        "mode": mode,
+    }
+    if not is_live_write_back():
+        return {"execution_status": "DRY_RUN", "execution_detail": _detail(planned)}
+
+    results: dict[str, Any] = {"planned": planned, "effects": {}}
+    if item_id and notes_text:
+        from integrations.monday_client import update_text_column_by_title
+
+        try:
+            results["effects"]["monday"] = update_text_column_by_title(
+                item_id=item_id,
+                column_title="Survey Notes",
+                text=notes_text[:5000],
+            )
+        except Exception as exc:  # noqa: BLE001
+            results["effects"]["monday"] = {"error": str(exc)}
+
+    if owner:
+        email_fn = send_email or _default_send_email
+        subject, body_text, body_html = build_phase3_owner_email(
+            agent_label="Photo Analysis",
+            project_id=project_id,
+            status=status,
+            headline="Survey photo issues detected",
+            summary=str(data.get("issues") or ""),
+            rows=[
+                ("Branding", str(data.get("branding_detected") or "—")),
+                ("Installation type", str(data.get("installation_type") or "—")),
+            ],
+        )
+        results["effects"]["email"] = email_fn(
+            to=owner, subject=subject, body_text=body_text, body_html=body_html
+        )
+
+    return {"execution_status": "SUCCESS", "execution_detail": _detail(results)}
+
+
+def _execute_installation_qc(
+    data: dict[str, Any],
+    *,
+    mode: str,
+    send_email: SendEmailFn | None,
+    update_monday_column: UpdateMondayFn | None,
+) -> dict[str, Any]:
+    status = str(data.get("status") or "")
+    if status not in {"FAIL", "NEEDS_REVIEW"}:
+        return {
+            "execution_status": "SKIPPED",
+            "execution_detail": f"Installation QC status '{status}' has no write-back",
+        }
+    owner = get_notify_owner_email()
+    item_id = str(data.get("monday_item_id") or "").strip()
+    project_id = str(data.get("project_id") or "—")
+    monday_label = "Fail" if status == "FAIL" else "Needs Review"
+    planned = {
+        "action": "INSTALLATION_QC",
+        "project_id": project_id,
+        "status": status,
+        "monday_item_id": item_id or None,
+        "notify_owner": owner,
+        "mode": mode,
+    }
+    if not is_live_write_back():
+        return {"execution_status": "DRY_RUN", "execution_detail": _detail(planned)}
+
+    results: dict[str, Any] = {"planned": planned, "effects": {}}
+    if item_id:
+        monday_fn = update_monday_column or _default_update_monday
+        try:
+            results["effects"]["monday"] = monday_fn(
+                item_id=item_id,
+                column_title="QC Status",
+                label=monday_label,
+            )
+        except Exception as exc:  # noqa: BLE001
+            results["effects"]["monday"] = {"error": str(exc)}
+
+    if owner:
+        email_fn = send_email or _default_send_email
+        subject, body_text, body_html = build_phase3_owner_email(
+            agent_label="Installation QC",
+            project_id=project_id,
+            status=status,
+            headline=f"Installation QC: {status.replace('_', ' ').title()}",
+            summary=str(data.get("defects") or data.get("recommendation") or ""),
+            rows=[
+                ("Alignment", str(data.get("alignment_score") or "—")),
+                ("Recommendation", str(data.get("recommendation") or "—")),
+            ],
+        )
+        results["effects"]["email"] = email_fn(
+            to=owner, subject=subject, body_text=body_text, body_html=body_html
         )
 
     return {"execution_status": "SUCCESS", "execution_detail": _detail(results)}

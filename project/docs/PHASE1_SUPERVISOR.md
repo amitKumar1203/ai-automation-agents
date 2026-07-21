@@ -8,12 +8,28 @@ Maps the proposal's **8 Supervisor responsibilities** to code paths.
 |---|----------------|----------------|
 | 1 | Task routing | [`supervisor/router.py`](../supervisor/router.py) `route_event` → webhook/cron enqueue |
 | 2 | Queue management | [`backend/services/agent_job_worker.py`](../backend/services/agent_job_worker.py) on `background_jobs` (`agent_poll`, `writeback_retry`) |
-| 3 | Approvals | [`supervisor/approval_policy.py`](../supervisor/approval_policy.py) + audit approve → [`action_executor.py`](../supervisor/action_executor.py). Outbound email HITL: `UNANSWERED` risky; client ack only after approve when `CLIENT_AUTO_ACK_ENABLED=true` (default **false**). Phase 3 stubs: `ai_mockup`, `installation_qc` |
+| 3 | Approvals | [`supervisor/approval_policy.py`](../supervisor/approval_policy.py) + audit approve → [`action_executor.py`](../supervisor/action_executor.py). Phase 3 vision agents: `ai_rendering`, `ai_mockup`, `photo_analysis`, `installation_qc` — see [`PHASE3.md`](PHASE3.md) |
 | 4 | Escalations | [`supervisor/escalation.py`](../supervisor/escalation.py) — agent `ESCALATE` markers, dead jobs, stale pending approvals |
 | 5 | Monitoring | `GET /api/supervisor/status` + overview `queue` / `open_escalations` |
 | 6 | Logging | `audit_entries` — timestamp, `input_json`, `result_data`, approval + `execution_status` |
 | 7 | Error recovery | Job fail → exponential backoff → dead; write-back FAIL → auto `writeback_retry`; operator retry for dead only |
 | 8 | Status tracking | `GET /api/supervisor/tasks/{task_id}` merges audit + related jobs |
+
+## Intake — approved dual-queue exception (TR-02)
+
+Intake & Classification uses a **separate durable queue** (`intake_submissions` +
+`background_jobs` for `classify` / `route` / owner notify), not
+`supervisor/router.py` `route_event()` poll targets. This is intentional:
+
+| Path | Trigger | Queue | HITL |
+|------|---------|-------|------|
+| Agent polls (email, vendor, PO, …) | Webhook/cron → `route_event()` | `agent_poll` | Audit log approve/reject |
+| Intake | Dashboard submit / signed webhook | Intake worker jobs | `/intake-agent` reviewer approve |
+
+Both paths share PostgreSQL persistence, RBAC, and write-back mode from Admin.
+Intake is **not** a bypass of Supervisor policy — it is a specialised async
+workflow for LLM classification + Monday routing. Future unification would add
+an `intake` event source to `router.py` that enqueues classify jobs only.
 
 ## Triggers
 
@@ -55,8 +71,8 @@ curl -X POST -H "X-API-Key: $API_KEY" \
 | Vendor reminder / escalate | Approve `SEND_REMINDER` / `ESCALATE` |
 | PO release | Approve `PO_READY_FOR_RELEASE` |
 | Low confidence (any agent) | Always approve |
-| External mock-up share | Policy stub `ai_mockup` (agent TBD Phase 3) |
-| Final QC sign-off | Policy stub `installation_qc` (agent TBD Phase 3) |
+| External mock-up share | `ai_mockup` — `READY_FOR_EXTERNAL_SHARE` → owner notify after approve |
+| Final QC sign-off | `installation_qc` — `FAIL` / `NEEDS_REVIEW` → owner notify + Monday QC status |
 
 ## Tests
 

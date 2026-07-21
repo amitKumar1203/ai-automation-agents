@@ -10,8 +10,10 @@ from models.agent_result import AgentResult
 from supervisor.audit_log import (
     clear_audit_log,
     get_audit_log,
+    get_dashboard_overview,
     log_execution,
     update_approval_status,
+    update_execution_outcome,
 )
 
 
@@ -306,3 +308,26 @@ def test_audit_log_status_filters_and_dedupe() -> None:
 
     approved = client.get("/api/audit-log?status=approved").json()
     assert any(item["task_id"] == "INST-B" for item in approved["items"])
+
+
+def test_auto_approved_entries_skip_manual_review() -> None:
+    """Runs that do not need HITL should not stay in PENDING."""
+    entry_id = log_execution("installer_matching", "INST-OK", _sample_result(), False)
+    entry = next(e for e in get_audit_log() if e["id"] == entry_id)
+    assert entry["approval_status"] == "AUTO_APPROVED"
+    assert entry["final_approval_needed"] is False
+
+
+def test_recent_failures_exclude_resolved_writebacks() -> None:
+    """Supervisor should not alert on FAILED rows superseded by SUCCESS."""
+    failed_id = log_execution("installer_matching", "INST-105", _sample_result(), True)
+    update_approval_status(failed_id, "APPROVED", "reviewer@example.com")
+    update_execution_outcome(failed_id, "FAILED", {"error": "monday invalid value"})
+
+    success_id = log_execution("installer_matching", "INST-105", _sample_result(), True)
+    update_approval_status(success_id, "APPROVED", "reviewer@example.com")
+    update_execution_outcome(success_id, "SUCCESS", {"planned": {"action": "ASSIGN_INSTALLER"}})
+
+    overview = get_dashboard_overview()
+    failure_ids = [e["id"] for e in overview["recent_failures"]]
+    assert failed_id not in failure_ids

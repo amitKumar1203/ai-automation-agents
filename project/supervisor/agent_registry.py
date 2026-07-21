@@ -1,10 +1,14 @@
 """Agent registry for routing tasks to the correct agent."""
 
+from agents.ai_mockup_agent import AIMockupAgent
+from agents.ai_rendering_agent import AIRenderingAgent
 from agents.artwork_verification_agent import ArtworkVerificationAgent
 from agents.automated_followup_agent import AutomatedFollowUpAgent
 from agents.base_agent import BaseAgent
 from agents.email_reply_agent import EmailReplyMonitoringAgent
+from agents.installation_qc_agent import InstallationQCAgent
 from agents.intake_classification_agent import IntakeClassificationAgent
+from agents.photo_analysis_agent import PhotoAnalysisAgent
 from agents.po_automation_agent import POAutomationAgent
 from agents.installer_matching_agent import InstallerMatchingAgent
 from agents.storefront_search_agent import StorefrontSearchAgent
@@ -19,6 +23,10 @@ AGENT_REGISTRY: dict[str, BaseAgent] = {
     "automated_followup": AutomatedFollowUpAgent(),
     "storefront_search": StorefrontSearchAgent(),
     "installer_matching": InstallerMatchingAgent(),
+    "ai_rendering": AIRenderingAgent(),
+    "ai_mockup": AIMockupAgent(),
+    "photo_analysis": PhotoAnalysisAgent(),
+    "installation_qc": InstallationQCAgent(),
 }
 
 

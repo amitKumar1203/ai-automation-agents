@@ -145,6 +145,17 @@ class ArtworkVisionResultResponse(BaseModel):
     final_approval_needed: bool | None = None
 
 
+class Phase3VisionResultResponse(BaseModel):
+    """Phase 3 on-demand vision agent result (AgentResult-shaped)."""
+
+    data: dict
+    confidence: float = Field(ge=0.0, le=1.0)
+    requires_approval: bool
+    reasoning: str
+    entry_id: str | None = None
+    final_approval_needed: bool | None = None
+
+
 class FollowUpCardResponse(BaseModel):
     """Single project activity result for Automated Follow-Up."""
 

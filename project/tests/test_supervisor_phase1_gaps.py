@@ -48,9 +48,11 @@ def test_route_unknown_raises() -> None:
         route_event("not-a-source")
 
 
-def test_phase3_approval_stubs_reserved() -> None:
+def test_phase3_approval_policy_complete() -> None:
     assert "READY_FOR_EXTERNAL_SHARE" in RISKY_STATUS_MAP["ai_mockup"]
     assert "FAIL" in RISKY_STATUS_MAP["installation_qc"]
+    assert "READY_FOR_REVIEW" in RISKY_STATUS_MAP["ai_rendering"]
+    assert "ISSUES_FOUND" in RISKY_STATUS_MAP["photo_analysis"]
 
 
 def test_enqueue_and_list_agent_poll_jobs(mem_jobs: Persistence) -> None:
@@ -131,3 +133,41 @@ def test_unanswered_requires_approval() -> None:
         reasoning="late",
     )
     assert requires_human_approval("email_reply_monitoring", result) is True
+
+
+def test_run_po_batch_persists_audit_entries(
+    mem_audit,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Dashboard/cron batch runners must write audit rows via Supervisor."""
+    from datetime import datetime, timezone
+
+    from backend.services.agent_runs import run_po_batch
+    from models.task import ProjectApproval
+    from supervisor.audit_log import get_audit_log
+
+    project = ProjectApproval(
+        project_id="PRJ-AUDIT-1",
+        client_name="Acme",
+        approved_at=datetime(2026, 7, 1, tzinfo=timezone.utc),
+        po_exists=False,
+        estimated_amount=1000.0,
+        vendor_name="Vendor Co",
+    )
+    monkeypatch.setattr(
+        "backend.services.agent_runs.get_approved_projects",
+        lambda **_: [project],
+    )
+    monkeypatch.setattr(
+        "backend.services.agent_runs.save_kpi_snapshot",
+        lambda *args, **kwargs: None,
+    )
+
+    summary = run_po_batch(use_real_salesforce=False)
+    assert summary["total_projects"] == 1
+
+    entries = get_audit_log()
+    assert len(entries) == 1
+    assert entries[0]["agent_name"] == "po_automation"
+    assert entries[0]["task_id"] == "PRJ-AUDIT-1"
+    assert entries[0].get("input") is not None

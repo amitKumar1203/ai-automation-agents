@@ -21,6 +21,7 @@ from integrations.salesforce_client import (
     SalesforceConfigError,
     SalesforceFetchError,
 )
+from models.agent_result import AgentResult
 from models.task import ArtworkSubmission
 from supervisor.agent_registry import get_agent
 from supervisor.approval_policy import requires_human_approval
@@ -322,6 +323,122 @@ def run_artwork_vision(
         "entry_id": entry_id,
         "final_approval_needed": final_approval_needed,
     }
+
+
+def _run_vision_agent_result(
+    agent_name: str,
+    task_id: str,
+    result: AgentResult,
+) -> dict[str, Any]:
+    """Apply approval policy and audit logging for on-demand vision agents."""
+    final_approval_needed = requires_human_approval(agent_name, result)
+    entry_id = log_execution(agent_name, task_id, result, final_approval_needed)
+    return {
+        "data": result.data,
+        "confidence": result.confidence,
+        "requires_approval": result.requires_approval,
+        "reasoning": result.reasoning,
+        "entry_id": entry_id,
+        "final_approval_needed": final_approval_needed,
+    }
+
+
+def run_rendering_vision(
+    *,
+    site_image_bytes: bytes,
+    site_media_type: str,
+    design_brief: str,
+    artwork_image_bytes: Optional[bytes] = None,
+    artwork_media_type: Optional[str] = None,
+    project_id: str = "",
+) -> dict[str, Any]:
+    """Run AI Rendering vision analysis and audit-log it."""
+    agent_name = "ai_rendering"
+    task_id = (project_id or "").strip() or "rendering-upload"
+    agent = get_agent(agent_name)
+    result = agent.execute_vision(
+        site_image_bytes=site_image_bytes,
+        site_media_type=site_media_type,
+        design_brief=design_brief,
+        artwork_image_bytes=artwork_image_bytes,
+        artwork_media_type=artwork_media_type,
+        project_id=task_id,
+    )
+    return _run_vision_agent_result(agent_name, task_id, result)
+
+
+def run_mockup_vision(
+    *,
+    site_image_bytes: bytes,
+    site_media_type: str,
+    artwork_image_bytes: bytes,
+    artwork_media_type: str,
+    brief: str = "",
+    project_id: str = "",
+    client_email: str = "",
+) -> dict[str, Any]:
+    """Run AI Mock-up vision analysis and audit-log it."""
+    agent_name = "ai_mockup"
+    task_id = (project_id or "").strip() or "mockup-upload"
+    agent = get_agent(agent_name)
+    result = agent.execute_vision(
+        site_image_bytes=site_image_bytes,
+        site_media_type=site_media_type,
+        artwork_image_bytes=artwork_image_bytes,
+        artwork_media_type=artwork_media_type,
+        brief=brief,
+        project_id=task_id,
+        client_email=client_email,
+    )
+    return _run_vision_agent_result(agent_name, task_id, result)
+
+
+def run_photo_analysis_vision(
+    *,
+    survey_image_bytes: bytes,
+    survey_media_type: str,
+    context: str = "",
+    project_id: str = "",
+    monday_item_id: str = "",
+) -> dict[str, Any]:
+    """Run Photo Analysis vision and audit-log it."""
+    agent_name = "photo_analysis"
+    task_id = (project_id or "").strip() or "photo-analysis-upload"
+    agent = get_agent(agent_name)
+    result = agent.execute_vision(
+        survey_image_bytes=survey_image_bytes,
+        survey_media_type=survey_media_type,
+        context=context,
+        project_id=task_id,
+        monday_item_id=monday_item_id,
+    )
+    return _run_vision_agent_result(agent_name, task_id, result)
+
+
+def run_installation_qc_vision(
+    *,
+    install_image_bytes: bytes,
+    install_media_type: str,
+    reference_image_bytes: bytes,
+    reference_media_type: str,
+    spec_notes: str = "",
+    project_id: str = "",
+    monday_item_id: str = "",
+) -> dict[str, Any]:
+    """Run Installation QC vision comparison and audit-log it."""
+    agent_name = "installation_qc"
+    task_id = (project_id or "").strip() or "installation-qc-upload"
+    agent = get_agent(agent_name)
+    result = agent.execute_vision(
+        install_image_bytes=install_image_bytes,
+        install_media_type=install_media_type,
+        reference_image_bytes=reference_image_bytes,
+        reference_media_type=reference_media_type,
+        spec_notes=spec_notes,
+        project_id=task_id,
+        monday_item_id=monday_item_id,
+    )
+    return _run_vision_agent_result(agent_name, task_id, result)
 
 
 def run_followup_batch(*, use_real_salesforce: bool = True) -> dict[str, Any]:

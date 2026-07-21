@@ -616,7 +616,7 @@ def get_salesforce_access_token(*, allow_browser: bool = False) -> tuple[str, st
         try:
             return _refresh_access_token(config, refresh_token, instance_hint)
         except SalesforceAuthError as refresh_exc:
-            if cloud_host or not allow_browser:
+            if cloud_host:
                 raise SalesforceAuthError(
                     f"{refresh_exc} "
                     "Refresh token is expired or was invalidated (common if someone "
@@ -627,7 +627,7 @@ def get_salesforce_access_token(*, allow_browser: bool = False) -> tuple[str, st
                     "(or `login-manual` if port 8765 is busy) "
                     "then `./scripts/sync_salesforce_token_to_vercel.sh`."
                 ) from refresh_exc
-            # Local CLI with allow_browser: fall through to password / browser login.
+            # Local: fall through to username-password / browser login.
 
     if config.get("username") and config.get("password"):
         try:

@@ -3,6 +3,7 @@ import type {
   AnalysisSummaryResponse,
   ArtworkCardData,
   ArtworkVisionResult,
+  Phase3VisionResult,
   AuditLogEntry,
   AuditLogPage,
   DashboardOverview,
@@ -23,6 +24,10 @@ import type {
   POAnalysisSummary,
   InstallerAnalysisSummary,
   StorefrontAnalysisSummary,
+  SupervisorJob,
+  SupervisorJobsResponse,
+  SupervisorStatus,
+  SupervisorTaskStatus,
   VendorAnalysisSummary,
 } from "./types";
 
@@ -383,6 +388,89 @@ export async function verifyArtworkVision(
   return payload as ArtworkVisionResult;
 }
 
+async function postMultipart<T>(path: string, formData: FormData): Promise<T> {
+  const response = await fetch(apiPath(path), {
+    method: "POST",
+    body: formData,
+    cache: "no-store",
+    credentials: "same-origin",
+    redirect: "manual",
+  });
+
+  if (response.status >= 300 && response.status < 400) {
+    throw new Error("Session expired — refresh and log in, then try again.");
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  const raw = await response.text();
+
+  if (!contentType.includes("application/json")) {
+    throw new Error(
+      `API ${response.status}: unexpected response (${contentType || "no content-type"})`,
+    );
+  }
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    throw new Error(`API ${response.status}: response was not valid JSON`);
+  }
+
+  if (!response.ok) {
+    const detail =
+      typeof payload === "object" &&
+      payload !== null &&
+      "detail" in payload &&
+      typeof (payload as { detail?: unknown }).detail === "string"
+        ? (payload as { detail: string }).detail
+        : response.statusText;
+    throw new Error(`API ${response.status}: ${detail}`);
+  }
+
+  return payload as T;
+}
+
+/** Phase 3 — AI Rendering site photo analysis. */
+export async function analyzeRenderingVision(
+  formData: FormData,
+): Promise<Phase3VisionResult> {
+  return postMultipart<Phase3VisionResult>(
+    "/api/phase3/rendering/analyze",
+    formData,
+  );
+}
+
+/** Phase 3 — AI Mock-up composite assessment. */
+export async function analyzeMockupVision(
+  formData: FormData,
+): Promise<Phase3VisionResult> {
+  return postMultipart<Phase3VisionResult>(
+    "/api/phase3/mockup/analyze",
+    formData,
+  );
+}
+
+/** Phase 3 — Survey photo analysis. */
+export async function analyzePhotoVision(
+  formData: FormData,
+): Promise<Phase3VisionResult> {
+  return postMultipart<Phase3VisionResult>(
+    "/api/phase3/photo-analysis/analyze",
+    formData,
+  );
+}
+
+/** Phase 3 — Installation QC comparison. */
+export async function analyzeInstallationQcVision(
+  formData: FormData,
+): Promise<Phase3VisionResult> {
+  return postMultipart<Phase3VisionResult>(
+    "/api/phase3/installation-qc/analyze",
+    formData,
+  );
+}
+
 /** Fetch a page of the supervisor audit log from the backend. */
 export async function fetchAuditLog(options: {
   limit?: number;
@@ -404,6 +492,42 @@ export async function fetchAuditLog(options: {
 /** Fetch management overview KPIs from the audit log (no live agent runs). */
 export async function fetchDashboardOverview(): Promise<DashboardOverview> {
   return fetchJson<DashboardOverview>("/api/dashboard/overview");
+}
+
+/** Live Supervisor monitoring (queue, escalations, write-back mode). */
+export async function fetchSupervisorStatus(
+  signal?: AbortSignal,
+): Promise<SupervisorStatus> {
+  return fetchJson<SupervisorStatus>("/api/supervisor/status", { signal });
+}
+
+/** List Supervisor background jobs (optional status filter). */
+export async function fetchSupervisorJobs(options: {
+  status?: "pending" | "running" | "succeeded" | "dead";
+  signal?: AbortSignal;
+} = {}): Promise<SupervisorJobsResponse> {
+  const params = new URLSearchParams({ limit: "50" });
+  if (options.status) params.set("status", options.status);
+  return fetchJson<SupervisorJobsResponse>(
+    `/api/supervisor/jobs?${params.toString()}`,
+    { signal: options.signal },
+  );
+}
+
+/** End-to-end task/project status across audit + queue jobs. */
+export async function fetchSupervisorTaskStatus(
+  taskId: string,
+  signal?: AbortSignal,
+): Promise<SupervisorTaskStatus> {
+  return fetchJson<SupervisorTaskStatus>(
+    `/api/supervisor/tasks/${encodeURIComponent(taskId)}`,
+    { signal },
+  );
+}
+
+/** Requeue a dead-letter Supervisor job (reviewer/admin). */
+export function retrySupervisorJob(jobId: string): Promise<{ ok: boolean; job: SupervisorJob }> {
+  return postJson(`/api/supervisor/jobs/${encodeURIComponent(jobId)}/retry`, {});
 }
 
 /** List operator accounts (admin only). */

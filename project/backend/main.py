@@ -27,6 +27,7 @@ from backend.routes import (
     intake_agent,
     intake_webhook,
     operator_auth,
+    phase3_agents,
     po_agent,
     storefront_agent,
     installer_agent,
@@ -103,6 +104,12 @@ app.include_router(
     artwork_agent.router,
     prefix="/api/artwork-agent",
     tags=["artwork-agent"],
+    dependencies=_dashboard_deps,
+)
+app.include_router(
+    phase3_agents.router,
+    prefix="/api/phase3",
+    tags=["phase3-vision"],
     dependencies=_dashboard_deps,
 )
 app.include_router(

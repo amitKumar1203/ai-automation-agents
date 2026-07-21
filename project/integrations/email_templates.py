@@ -614,3 +614,48 @@ def build_installer_owner_email(
         ),
     )
     return subject, body_text, body_html
+
+
+def build_phase3_owner_email(
+    *,
+    agent_label: str,
+    project_id: str,
+    status: str,
+    headline: str,
+    summary: str,
+    rows: list[tuple[str, str]],
+    dashboard_url_override: str | None = None,
+) -> tuple[str, str, str]:
+    """Branded owner notification for Phase 3 vision agents."""
+    review_url = (dashboard_url_override or dashboard_url(
+        "https://ai-automation-agents-plum.vercel.app/audit-log"
+    )).strip()
+    subject = f"{agent_label}: {headline} · {project_id}"
+    body_text = (
+        f"{headline}\n\n"
+        f"Project ID: {project_id}\n"
+        f"Status: {status}\n\n"
+        f"{summary}\n\n"
+        f"Review in Ops Console: {review_url}\n\n"
+        "This notification was generated after approval in Softude Ops Console."
+    )
+    intro_html = (
+        f"<strong>{escape(headline)}</strong> for project "
+        f"<strong>{escape(project_id)}</strong>."
+    )
+    if summary.strip():
+        intro_html += f"<br /><br />{escape(summary[:500])}"
+    body_html = render_branded_email(
+        eyebrow=agent_label,
+        title=headline,
+        intro_html=intro_html,
+        badge=status.replace("_", " "),
+        accent="#8b5cf6",
+        badge_bg="#ede9fe",
+        badge_text="#5b21b6",
+        rows=rows,
+        cta_label="Review in Ops Console",
+        cta_url=review_url,
+        footer_note="Generated after human approval in Softude Ops Console.",
+    )
+    return subject, body_text, body_html

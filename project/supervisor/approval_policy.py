@@ -11,7 +11,6 @@ import json
 from models.agent_result import AgentResult
 
 # Built-in defaults used when DB has no override.
-# Phase 3 agents (ai_mockup, installation_qc) are reserved stubs until built.
 DEFAULT_RISKY_STATUS_MAP: dict[str, set[str]] = {
     "email_reply_monitoring": {"UNANSWERED"},
     "vendor_followup": {"SEND_REMINDER", "ESCALATE"},
@@ -20,8 +19,9 @@ DEFAULT_RISKY_STATUS_MAP: dict[str, set[str]] = {
     "automated_followup": {"SEND_FOLLOWUP", "ESCALATE"},
     "storefront_search": {"FOUND", "LOW_CONFIDENCE", "SEARCH_FAILED"},
     "installer_matching": {"MATCHED", "LOW_CONFIDENCE"},
-    # Phase 3 HITL stubs — Supervisor owns these gates when agents land.
+    "ai_rendering": {"READY_FOR_REVIEW", "LOW_CONFIDENCE"},
     "ai_mockup": {"READY_FOR_EXTERNAL_SHARE", "LOW_CONFIDENCE"},
+    "photo_analysis": {"ISSUES_FOUND", "LOW_CONFIDENCE"},
     "installation_qc": {"FAIL", "NEEDS_REVIEW", "LOW_CONFIDENCE"},
 }
 

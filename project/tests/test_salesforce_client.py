@@ -136,6 +136,66 @@ def test_refresh_token_auth_success(
 
 
 @patch("integrations.salesforce_client.requests.post")
+def test_expired_refresh_token_falls_back_to_password_locally(
+    mock_post: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When refresh fails locally, username-password auth should still be tried."""
+    for key, value in _ENV.items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.setenv("SALESFORCE_REFRESH_TOKEN", "refresh-abc")
+    monkeypatch.delenv("VERCEL", raising=False)
+    monkeypatch.delenv("DISABLE_SALESFORCE_BROWSER_OAUTH", raising=False)
+
+    refresh_fail = MagicMock()
+    refresh_fail.ok = False
+    refresh_fail.json.return_value = {
+        "error": "invalid_grant",
+        "error_description": "expired access/refresh token",
+    }
+    password_ok = MagicMock()
+    password_ok.ok = True
+    password_ok.json.return_value = {
+        "access_token": "tok-from-password",
+        "instance_url": "https://example.my.salesforce.com",
+        "refresh_token": "refresh-new",
+    }
+    mock_post.side_effect = [refresh_fail, password_ok]
+
+    token, instance_url = get_salesforce_access_token()
+
+    assert token == "tok-from-password"
+    assert instance_url == "https://example.my.salesforce.com"
+    assert mock_post.call_count == 2
+    assert mock_post.call_args_list[1].kwargs["data"]["grant_type"] == "password"
+
+
+@patch("integrations.salesforce_client.requests.post")
+def test_expired_refresh_token_raises_on_cloud_without_password_fallback(
+    mock_post: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Vercel should not silently fall back when refresh token is invalid."""
+    for key, value in _ENV.items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.setenv("SALESFORCE_REFRESH_TOKEN", "refresh-abc")
+    monkeypatch.setenv("VERCEL", "1")
+
+    response = MagicMock()
+    response.ok = False
+    response.json.return_value = {
+        "error": "invalid_grant",
+        "error_description": "expired access/refresh token",
+    }
+    mock_post.return_value = response
+
+    with pytest.raises(SalesforceAuthError, match="expired access/refresh token"):
+        get_salesforce_access_token()
+
+    mock_post.assert_called_once()
+
+
+@patch("integrations.salesforce_client.requests.post")
 def test_refresh_token_uses_instance_url_env_hint(
     mock_post: MagicMock,
     monkeypatch: pytest.MonkeyPatch,

@@ -8,7 +8,7 @@ from unittest.mock import patch
 import pytest
 
 from agents.automated_followup_agent import AutomatedFollowUpAgent
-from models.task import ProjectActivity, ProjectApproval
+from models.task import ProjectActivity
 from supervisor.approval_policy import requires_human_approval
 from supervisor.write_back import get_followup_notify_email
 
@@ -68,22 +68,21 @@ def test_followup_batch_api_uses_salesforce(
     monkeypatch.setenv("FOLLOWUP_ESCALATE_DAYS", "14")
     monkeypatch.setenv("NOTIFY_OWNER_EMAIL", "ops@example.com")
 
+    real_now = datetime.now(timezone.utc)
     fake = [
-        ProjectApproval(
+        ProjectActivity(
             project_id="P-1",
-            client_name="Acme",
-            approved_at=NOW - timedelta(days=10),
-            po_exists=False,
-            estimated_amount=100.0,
-            vendor_name="V",
+            project_name="Acme",
+            last_activity_at=real_now - timedelta(days=10),
+            stage="Design",
+            owner_email="ops@example.com",
         ),
-        ProjectApproval(
+        ProjectActivity(
             project_id="P-2",
-            client_name="Beta",
-            approved_at=NOW - timedelta(days=2),
-            po_exists=True,
-            estimated_amount=50.0,
-            vendor_name="V2",
+            project_name="Beta",
+            last_activity_at=real_now - timedelta(days=2),
+            stage="Install",
+            owner_email="ops@example.com",
         ),
     ]
 
@@ -99,8 +98,11 @@ def test_followup_batch_api_uses_salesforce(
         headers["X-API-Key"] = key
 
     with patch(
-        "backend.data_source.get_approved_projects",
+        "backend.services.agent_runs.get_project_activities",
         return_value=fake,
+    ), patch(
+        "backend.services.agent_runs.save_kpi_snapshot",
+        lambda *args, **kwargs: None,
     ):
         client = TestClient(app)
         response = client.get(

@@ -42,6 +42,7 @@ Open **http://localhost:3000** — it redirects to `/email-agent`.
 | `/po-agent` | Purchase order drafts for approved projects awaiting release |
 | `/artwork-agent` | Numeric artwork vs spec dimension verification |
 | `/audit-log` | Table view of supervisor audit log entries |
+| `/supervisor` | Live queue depth, task lookup, dead job retry |
 
 ## Environment
 

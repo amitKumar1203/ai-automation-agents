@@ -24,6 +24,7 @@ const AGENT_LINKS: { key: string; href: string; label: string }[] = [
   { key: "automated_followup", href: "/followup-agent", label: "Follow-up" },
   { key: "storefront_search", href: "/storefront-agent", label: "Storefront" },
   { key: "installer_matching", href: "/installer-agent", label: "Installer" },
+  { key: "ai_rendering", href: "/vision-agents", label: "Vision (Phase 3)" },
 ];
 
 function roleEyebrow(role: OperatorRole | null): string {

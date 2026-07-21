@@ -300,6 +300,7 @@ def log_execution(
     input_json = (
         json.dumps(input_data, default=str) if input_data is not None else None
     )
+    initial_approval_status = "PENDING" if final_approval_needed else "AUTO_APPROVED"
 
     with _connect() as conn:
         _supersede_stale_pending(
@@ -316,7 +317,7 @@ def log_execution(
                 confidence, reasoning, final_approval_needed,
                 approval_status, approved_by, approved_at,
                 execution_status, execution_detail, input_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', NULL, NULL, NULL, NULL, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, ?)
                 """
             ),
             (
@@ -329,6 +330,7 @@ def log_execution(
                 result.reasoning,
                 final_approval_needed if _backend == "postgres"
                 else (1 if final_approval_needed else 0),
+                initial_approval_status,
                 input_json,
             ),
         )
@@ -459,9 +461,7 @@ def get_dashboard_overview() -> dict[str, Any]:
         if name not in last_by_agent:
             last_by_agent[name] = entry["timestamp"]
 
-    failed = [
-        e for e in entries if e.get("execution_status") == "FAILED"
-    ][:10]
+    failed = _unresolved_writeback_failures(entries)[:10]
 
     escalations = [
         e
@@ -488,6 +488,26 @@ def get_dashboard_overview() -> dict[str, Any]:
         "write_back_mode": get_write_back_mode(),
         "kpis": get_all_kpi_snapshots(),
     }
+
+
+def _unresolved_writeback_failures(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Return FAILED write-backs that were not later succeeded for the same task."""
+    success_keys: set[tuple[str, str]] = set()
+    for entry in entries:
+        if entry.get("execution_status") == "SUCCESS":
+            success_keys.add(
+                (str(entry.get("agent_name") or ""), str(entry.get("task_id") or ""))
+            )
+
+    unresolved: list[dict[str, Any]] = []
+    for entry in entries:
+        if entry.get("execution_status") != "FAILED":
+            continue
+        key = (str(entry.get("agent_name") or ""), str(entry.get("task_id") or ""))
+        if key in success_keys:
+            continue
+        unresolved.append(entry)
+    return unresolved
 
 
 def _entry_has_escalation(entry: dict[str, Any]) -> bool:

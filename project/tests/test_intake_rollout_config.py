@@ -32,11 +32,12 @@ def test_production_cors_requires_exact_configured_origins(
         main._allowed_cors_origins()
 
 
-def test_vercel_retains_daily_poll_and_runs_intake_every_minute() -> None:
+def test_vercel_retains_daily_poll_and_intake_cron() -> None:
+    """Vercel Hobby allows daily crons only — intake runs shortly after poll-all."""
     config = json.loads((PROJECT_ROOT / "vercel.json").read_text())
     crons = {entry["path"]: entry["schedule"] for entry in config["crons"]}
     assert crons["/api/cron/poll-all"] == "0 6 * * *"
-    assert crons["/api/cron/intake"] == "* * * * *"
+    assert crons["/api/cron/intake"] == "5 6 * * *"
 
 
 def test_intake_cron_requires_secret_and_drains_worker(

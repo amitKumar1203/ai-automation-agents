@@ -19,6 +19,8 @@ import {
   Send,
   Settings,
   Store,
+  Radio,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 
@@ -53,12 +55,19 @@ const AGENT_NAV: NavDef[] = [
   { href: "/installer-agent", label: "Installer Matching", icon: HardHat },
   { href: "/po-agent", label: "PO Agent", icon: FileCheck2 },
   { href: "/artwork-agent", label: "Artwork Agent", icon: ScanSearch },
+  { href: "/vision-agents", label: "Vision Agents", icon: Sparkles },
 ];
 
 const AUDIT_NAV: NavDef = {
   href: "/audit-log",
   label: "Audit Log",
   icon: ScrollText,
+};
+
+const SUPERVISOR_NAV: NavDef = {
+  href: "/supervisor",
+  label: "Supervisor",
+  icon: Radio,
 };
 
 const ADMIN_NAV_ITEM: NavDef = {
@@ -69,18 +78,17 @@ const ADMIN_NAV_ITEM: NavDef = {
 
 function navForRole(role: OperatorRole | null | undefined): NavDef[] {
   if (role === "admin") {
-    return [OVERVIEW_NAV, ...AGENT_NAV, AUDIT_NAV, ADMIN_NAV_ITEM];
+    return [OVERVIEW_NAV, ...AGENT_NAV, AUDIT_NAV, SUPERVISOR_NAV, ADMIN_NAV_ITEM];
   }
   if (role === "reviewer") {
-    // Approvals-first: Overview + Audit before agent tools
     return [
       { ...OVERVIEW_NAV, label: "Review Queue" },
       { ...AUDIT_NAV, label: "Approvals" },
+      SUPERVISOR_NAV,
       ...AGENT_NAV,
     ];
   }
-  // Operator: operational tools first; audit is read-only history
-  return [OVERVIEW_NAV, ...AGENT_NAV, AUDIT_NAV];
+  return [OVERVIEW_NAV, ...AGENT_NAV, AUDIT_NAV, SUPERVISOR_NAV];
 }
 
 function pageTitleFromPathname(
@@ -98,7 +106,10 @@ function pageTitleFromPathname(
   if (pathname === "/audit-log" || pathname.startsWith("/audit-log/")) {
     return role === "reviewer" ? "Approvals" : "Audit Log";
   }
-  const item = [...AGENT_NAV, OVERVIEW_NAV, AUDIT_NAV, ADMIN_NAV_ITEM].find(
+  if (pathname === "/supervisor" || pathname.startsWith("/supervisor/")) {
+    return "Supervisor";
+  }
+  const item = [...AGENT_NAV, OVERVIEW_NAV, AUDIT_NAV, SUPERVISOR_NAV, ADMIN_NAV_ITEM].find(
     (i) => pathname === i.href || pathname.startsWith(`${i.href}/`),
   );
   if (item) return item.label;
@@ -125,7 +136,7 @@ function NavItem({
       href={href}
       aria-current={active ? "page" : undefined}
       className={`relative flex shrink-0 items-center gap-2.5 rounded-control px-3 py-2 text-sm font-medium transition-colors ${
-        active ? "text-white" : "text-slate-400 hover:bg-white/[0.035] hover:text-slate-100"
+        active ? "text-white" : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-100"
       } ${compact ? "whitespace-nowrap" : "w-full"}`}
     >
       {active && (
@@ -229,7 +240,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="h-dvh overflow-hidden bg-transparent">
       <div className="flex h-dvh">
-        <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 border-r border-white/15 bg-surface-raised/55 shadow-[8px_0_32px_rgba(0,0,0,0.2)] backdrop-blur-2xl md:block md:w-64 lg:w-72">
+        <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 border-r border-white/12 bg-surface-raised/68 shadow-[8px_0_28px_rgba(0,0,0,0.16)] backdrop-blur-2xl md:block md:w-64 lg:w-72">
           <div className="flex h-full flex-col">
             <div className="px-5 pb-5 pt-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#d6b87a]">
@@ -264,7 +275,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
               </ul>
             </nav>
 
-            <div className="border-t border-white/10 bg-white/[0.025] px-5 py-4">
+            <div className="border-t border-white/10 bg-white/[0.03] px-5 py-4">
               <div className="flex items-center gap-3">
                 <ProfileAvatar
                   name={operator?.name ?? undefined}
@@ -291,7 +302,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
         </aside>
 
         <div className="flex h-dvh min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-40 border-b border-white/15 bg-surface/50 shadow-[0_8px_32px_rgba(0,0,0,0.16)] backdrop-blur-2xl">
+          <header className="sticky top-0 z-40 border-b border-white/12 bg-surface/62 shadow-[0_6px_24px_rgba(0,0,0,0.12)] backdrop-blur-2xl">
             <div className="flex w-full items-center justify-between gap-4 px-4 py-3.5 sm:px-5">
               <div className="min-w-0 flex-1 text-left">
                 <p className="truncate text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
@@ -322,13 +333,13 @@ export default function AppShell({ children }: { children: ReactNode }) {
                   disabled={loggingOut}
                   aria-label="Log out"
                   title="Log out"
-                  className="button-press inline-flex h-8 w-8 items-center justify-center rounded-control border border-white/10 bg-white/[0.035] text-slate-400 hover:border-accent-primary/30 hover:text-accent-primary disabled:cursor-wait disabled:opacity-50"
+                  className="button-press inline-flex h-8 w-8 items-center justify-center rounded-control border border-white/10 bg-white/[0.04] text-slate-400 hover:border-accent-primary/30 hover:text-accent-primary disabled:cursor-wait disabled:opacity-50"
                 >
                   <LogOut className="h-4 w-4" strokeWidth={1.8} aria-hidden />
                 </button>
               </div>
             </div>
-            <nav className="overflow-x-auto border-t border-white/10 bg-white/[0.02] px-2 py-1.5 md:hidden" aria-label="Primary navigation">
+            <nav className="overflow-x-auto border-t border-white/10 bg-white/[0.025] px-2 py-1.5 md:hidden" aria-label="Primary navigation">
               <div className="flex min-w-max gap-1">
                 {navItems.map((item) => {
                   const active =
@@ -343,7 +354,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
           <main className="min-w-0 flex-1 overflow-y-auto">{children}</main>
 
-          <footer className="border-t border-white/10 bg-surface/35 backdrop-blur-xl">
+          <footer className="border-t border-white/10 bg-surface/42 backdrop-blur-xl">
             <div className="flex w-full items-center justify-between px-4 py-3 text-xs text-slate-500 sm:px-5">
               <span>© {new Date().getFullYear()} Softude Ops Console</span>
               <span className="font-mono">v1</span>

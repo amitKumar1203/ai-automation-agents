@@ -163,6 +163,8 @@ def update_assigned_installer_column(
             f"Column {column_title!r} not found on install projects board {board_id}."
         )
     column_id = title_to_id[column_title]
+    # Monday text columns require {"text": "..."} — not a bare JSON string.
+    value_json = json.dumps({"text": installer_name})
     changed = _post_graphql(
         """
         mutation ($boardId: ID!, $itemId: ID!, $columnId: String!, $value: JSON!) {
@@ -178,7 +180,7 @@ def update_assigned_installer_column(
             "boardId": board_id,
             "itemId": item_id,
             "columnId": column_id,
-            "value": json.dumps(installer_name),
+            "value": json.dumps({"text": installer_name}),
         },
     )
     return {

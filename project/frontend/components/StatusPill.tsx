@@ -48,6 +48,19 @@ const pillStyles: Record<AgentStatus, string> = {
   general_inquiry: "bg-white/5 text-slate-300 ring-1 ring-white/15",
   unclassified:
     "status-warning text-accent-amber ring-1 ring-accent-amber/35",
+  READY_FOR_REVIEW:
+    "status-warning text-accent-amber ring-1 ring-accent-amber/35",
+  APPROVED_INTERNAL:
+    "status-success text-accent-green ring-1 ring-accent-green/30",
+  READY_FOR_EXTERNAL_SHARE:
+    "status-accent text-accent-primary ring-1 ring-accent-primary/35",
+  NEEDS_REVISION: "status-danger text-accent-red ring-1 ring-accent-red/35",
+  ANALYZED: "status-success text-accent-green ring-1 ring-accent-green/30",
+  ISSUES_FOUND: "status-danger text-accent-red ring-1 ring-accent-red/35",
+  PASS: "status-success text-accent-green ring-1 ring-accent-green/30",
+  FAIL: "status-danger text-accent-red ring-1 ring-accent-red/35",
+  NEEDS_REVIEW:
+    "status-warning text-accent-amber ring-1 ring-accent-amber/35",
 };
 
 const pillLabels: Partial<Record<AgentStatus, string>> = {
@@ -78,6 +91,15 @@ const pillLabels: Partial<Record<AgentStatus, string>> = {
   support_issue: "Support issue",
   general_inquiry: "General inquiry",
   unclassified: "Unclassified",
+  READY_FOR_REVIEW: "Ready for review",
+  APPROVED_INTERNAL: "Internal OK",
+  READY_FOR_EXTERNAL_SHARE: "External share",
+  NEEDS_REVISION: "Needs revision",
+  ANALYZED: "Analyzed",
+  ISSUES_FOUND: "Issues found",
+  PASS: "Pass",
+  FAIL: "Fail",
+  NEEDS_REVIEW: "Needs review",
 };
 
 /** Status badge pill for agent result cards. */
