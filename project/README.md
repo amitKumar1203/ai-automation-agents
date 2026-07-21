@@ -1,8 +1,54 @@
 # AI Automation Agents
 
-Multi-agent automation system with a Supervisor + Agents architecture.
+Multi-agent automation system with a **Supervisor + Agents** architecture. Twelve specialized agents cover client email SLA, vendor follow-up, PO release, artwork checks, intake routing, storefront imagery, installer matching, project follow-up, and four Claude vision workflows — all gated by human approval where risk warrants it.
 
-## Email Reply Monitoring Agent
+## Production
+
+| Service | URL |
+|---------|-----|
+| Dashboard | https://ai-automation-agents-plum.vercel.app |
+| API | https://ai-automation-agents-api.vercel.app |
+
+## Dashboard pages
+
+| Page | Path | Role |
+|------|------|------|
+| Overview | `/` | KPIs, pending counts, agent links |
+| Email | `/email-agent` | Gmail thread monitoring |
+| Vendor | `/vendor-agent` | Monday quote follow-up |
+| PO | `/po-agent` | Salesforce approved projects |
+| Artwork | `/artwork-agent` | Numeric + vision dimension check |
+| Intake | `/intake-agent` | Submit, review, route submissions |
+| Storefront | `/storefront-agent` | Storefront image search |
+| Installer | `/installer-agent` | Installer ranking |
+| Follow-up | `/followup-agent` | Stalled project detection |
+| Vision (Phase 3) | `/vision-agents` | Rendering, mock-up, photo, QC |
+| Supervisor | `/supervisor` | Queue, jobs, retries, escalations |
+| Audit Log | `/audit-log` | Approve / reject across all agents |
+| Admin | `/admin` | Write-back mode, approval rules, operators |
+
+## Agent summary
+
+| Agent | Registry name | Risky statuses (HITL) |
+|-------|---------------|------------------------|
+| Email Reply Monitoring | `email_reply_monitoring` | `UNANSWERED` |
+| Vendor Follow-Up | `vendor_followup` | `SEND_REMINDER`, `ESCALATE` |
+| PO Automation | `po_automation` | `PO_READY_FOR_RELEASE` |
+| Artwork Verification | `artwork_verification` | `MISMATCH`, `UNCERTAIN` |
+| Intake & Classification | `intake_classification` | Low confidence / support (reviewer UI) |
+| Storefront Search | `storefront_search` | `FOUND`, `LOW_CONFIDENCE`, `SEARCH_FAILED` |
+| Installer Matching | `installer_matching` | `MATCHED`, `LOW_CONFIDENCE` |
+| Automated Follow-Up | `automated_followup` | `SEND_FOLLOWUP`, `ESCALATE` |
+| AI Rendering | `ai_rendering` | `READY_FOR_REVIEW`, `LOW_CONFIDENCE` |
+| AI Mock-up | `ai_mockup` | `READY_FOR_EXTERNAL_SHARE`, `LOW_CONFIDENCE` |
+| Photo Analysis | `photo_analysis` | `ISSUES_FOUND`, `LOW_CONFIDENCE` |
+| Installation QC | `installation_qc` | `FAIL`, `NEEDS_REVIEW`, `LOW_CONFIDENCE` |
+
+---
+
+## Phase 1 — Core Operations
+
+### Email Reply Monitoring Agent
 
 Rule-based agent that flags client email threads where the last message is from the client and has been pending for more than 24 hours.
 
@@ -13,7 +59,7 @@ Optional live inbox source for the email agent. Monitoring uses
 **Agent runs themselves never send mail to clients by default** — only a
 fixed **template acknowledgment** (no AI) may go to the client when a thread
 is ``UNANSWERED``, and only when ``WRITE_BACK_MODE=live`` and
-``CLIENT_AUTO_ACK_ENABLED=true`` (default on). Owner digest notify still uses
+``CLIENT_AUTO_ACK_ENABLED=true`` (default **off**). Owner digest notify still uses
 the approve / batch notify path. Re-consent with ``gmail.send`` before live
 sends.
 
@@ -182,7 +228,11 @@ the executor sets `PO_Exists__c=true` (and optionally creates a row in
 
 The dashboard `/po-agent` always runs against **live Salesforce**.
 
-## Intake & Classification Agent
+---
+
+## Phase 2 — Operational Intelligence
+
+### Intake & Classification Agent
 
 Intake is a durable asynchronous workflow. Dashboard and signed webhook
 submissions are persisted and queued before the API returns `202`; Claude and
@@ -224,7 +274,76 @@ UAT. Exact signed-webhook commands, Google OAuth setup, board columns, worker
 tuning, migrations, rollout, and recovery are in
 [`docs/INTAKE_ROLLOUT.md`](docs/INTAKE_ROLLOUT.md).
 
-## Artwork Verification Agent
+## Storefront Search Agent
+
+Finds storefront imagery from a store address and recommends attaching it to
+the Monday project record.
+
+| Status | Condition | Approval |
+|--------|-----------|----------|
+| `ALREADY_ATTACHED` | Image already on record | Agent: no |
+| `MISSING_ADDRESS` | No store address | Agent: no |
+| `FOUND` | Image found with sufficient confidence | Agent: yes |
+| `LOW_CONFIDENCE` | Match uncertain | Agent: yes |
+| `NOT_FOUND` / `SEARCH_FAILED` | No usable image | Agent: yes |
+
+Registered as `storefront_search`. Post-approve write-back (live mode) updates
+the Monday **Storefront Image** column.
+
+```bash
+curl 'http://localhost:8000/api/storefront-agent/run'
+```
+
+Dashboard: `/storefront-agent` (live Monday.com).
+
+Optional: set `GOOGLE_PLACES_API_KEY` for live imagery; without it a
+deterministic placeholder URL is used for demos/UAT.
+
+## Installer Matching Agent
+
+Ranks installers by install region and spare capacity, then recommends an
+assignment.
+
+| Status | Condition | Approval |
+|--------|-----------|----------|
+| `ALREADY_ASSIGNED` | Installer already set | Agent: no |
+| `MISSING_REGION` | No install region | Agent: no |
+| `MATCHED` | Top candidate above threshold | Agent: yes |
+| `LOW_CONFIDENCE` | Weak match | Agent: yes |
+| `NO_MATCH` | No suitable installer | Agent: no |
+
+Registered as `installer_matching`. Post-approve write-back (live mode) sets
+Monday **Assigned Installer** and sends an owner draft email.
+
+```bash
+curl 'http://localhost:8000/api/installer-agent/run'
+```
+
+Dashboard: `/installer-agent` (live Monday.com).
+
+## Automated Follow-Up Agent
+
+Monitors Salesforce project activity and flags stalled work.
+
+| Status | Condition | Approval |
+|--------|-----------|----------|
+| `OK` | Within inactive threshold | Agent: no |
+| `SEND_FOLLOWUP` | Inactive ≥ `FOLLOWUP_INACTIVE_DAYS` (default 7) | Agent: yes |
+| `ESCALATE` | Inactive ≥ `FOLLOWUP_ESCALATE_DAYS` (default 14) | Agent: yes |
+| `INVALID_DATE` | Last activity in the future | Agent: no |
+
+Registered as `automated_followup`. Post-approve write-back notifies the
+project owner — **no client auto-reply** from this agent.
+
+```bash
+curl 'http://localhost:8000/api/followup-agent/run'
+```
+
+Dashboard: `/followup-agent` (live Salesforce).
+
+---
+
+## Phase 1 (continued) — Artwork Verification Agent
 
 Enter artwork vs spec dimensions (±0.25 in) or upload an image for vision
 analysis. Both paths are **on-demand** — no hardcoded sample batch.
@@ -294,14 +413,48 @@ Human-in-the-loop remains the default for anything that is not a clear MATCH:
 `MISMATCH` and `UNCERTAIN` always go through approval, consistent with the
 rest of the supervisor system.
 
-### Run locally (CLI)
+---
+
+## Phase 3 — AI Vision Agents
+
+Four on-demand Claude vision agents (see [`docs/PHASE3.md`](docs/PHASE3.md)).
+Dashboard: **`/vision-agents`** (tabbed upload for all four).
+
+| Agent | Registry | Endpoint | Risky statuses |
+|-------|----------|----------|----------------|
+| AI Rendering | `ai_rendering` | `POST /api/phase3/rendering/analyze` | `READY_FOR_REVIEW`, `LOW_CONFIDENCE` |
+| AI Mock-up | `ai_mockup` | `POST /api/phase3/mockup/analyze` | `READY_FOR_EXTERNAL_SHARE`, `LOW_CONFIDENCE` |
+| Photo Analysis | `photo_analysis` | `POST /api/phase3/photo-analysis/analyze` | `ISSUES_FOUND`, `LOW_CONFIDENCE` |
+| Installation QC | `installation_qc` | `POST /api/phase3/installation-qc/analyze` | `FAIL`, `NEEDS_REVIEW`, `LOW_CONFIDENCE` |
+
+All follow the artwork-vision pattern: multipart image upload → Claude structured
+output → Supervisor audit → human approve when risky → write-back when
+`WRITE_BACK_MODE=live`.
+
+**Scope note:** Phase 3 uses **Anthropic vision analysis** (structured assessments,
+readiness judgments, QC findings) — not generative PNG output. Set
+`ANTHROPIC_API_KEY` in `project/.env`.
+
+```bash
+curl -X POST http://localhost:8000/api/phase3/photo-analysis/analyze \
+  -H "X-API-Key: $API_KEY" \
+  -F "survey_image=@/path/to/photo.jpg" \
+  -F "project_id=P-301" \
+  -F "context_text=Storefront survey"
+
+python3 -m pytest tests/test_phase3_agents.py -v
+```
+
+---
+
+## Run locally (CLI)
 
 ```bash
 cd project
 python3 main.py
 ```
 
-### Run tests
+## Run tests
 
 ```bash
 cd project
@@ -325,14 +478,22 @@ the Supervisor decides whether human approval is required.
 
   ```python
   RISKY_STATUS_MAP = {
+      "email_reply_monitoring": {"UNANSWERED"},
       "vendor_followup": {"SEND_REMINDER", "ESCALATE"},
       "po_automation": {"PO_READY_FOR_RELEASE"},
       "artwork_verification": {"MISMATCH", "UNCERTAIN"},
+      "automated_followup": {"SEND_FOLLOWUP", "ESCALATE"},
+      "storefront_search": {"FOUND", "LOW_CONFIDENCE", "SEARCH_FAILED"},
+      "installer_matching": {"MATCHED", "LOW_CONFIDENCE"},
+      "ai_rendering": {"READY_FOR_REVIEW", "LOW_CONFIDENCE"},
+      "ai_mockup": {"READY_FOR_EXTERNAL_SHARE", "LOW_CONFIDENCE"},
+      "photo_analysis": {"ISSUES_FOUND", "LOW_CONFIDENCE"},
+      "installation_qc": {"FAIL", "NEEDS_REVIEW", "LOW_CONFIDENCE"},
   }
   ```
 
-  Only those statuses force approval. Agents not listed (e.g.
-  `email_reply_monitoring`) use confidence / agent flag only.
+  Only those statuses force approval (plus global confidence < 0.75). Intake uses
+  its own reviewer UI for low-confidence and support categories.
 - **Audit log** — every execution is persisted to PostgreSQL in production
   (`DATABASE_URL`) with a local SQLite fallback
 - **Batch runs** — `run_batch()` executes multiple tasks and returns aggregated counts
@@ -357,10 +518,14 @@ Already-decided entries cannot be changed again (API returns HTTP 409).
 
 | Agent | Action |
 |-------|--------|
-| `vendor_followup` (`SEND_REMINDER` / `ESCALATE`) | Notify `NOTIFY_OWNER_EMAIL`; on escalate, set Monday Quote Received → Escalate |
+| `email_reply_monitoring` (`UNANSWERED`) | Owner notify email; optional client ack when enabled |
+| `vendor_followup` (`SEND_REMINDER` / `ESCALATE`) | Notify owner; on escalate, set Monday Quote Received → Escalate |
 | `po_automation` (`PO_READY_FOR_RELEASE`) | Mark Salesforce `PO_Exists__c`; optional PO object create |
-| `email_reply_monitoring` | Owner notify email |
 | `artwork_verification` (`MISMATCH` / `UNCERTAIN`) | Owner notify (or log-only if no owner email) |
+| `automated_followup` (`SEND_FOLLOWUP` / `ESCALATE`) | Owner notify |
+| `storefront_search` (`FOUND` / risky) | Monday Storefront Image column update |
+| `installer_matching` (`MATCHED` / risky) | Monday Assigned Installer + owner draft email |
+| `ai_rendering` / `ai_mockup` / `photo_analysis` / `installation_qc` | Owner notify (+ optional Monday notes/status) |
 
 Controlled by env:
 
@@ -393,10 +558,12 @@ curl -X POST http://localhost:8000/api/audit-log/<entry_id>/reject \
 - Missing entry → **404**
 - Already decided → **409**
 - UI actions live on `/audit-log` (and pending counts on `/`)
+- Supervisor queue, job retry, and escalations: `/supervisor`
 
 ```bash
 curl http://localhost:8000/api/audit-log
 curl http://localhost:8000/api/dashboard/overview
+curl http://localhost:8000/api/supervisor/status
 ```
 
 ### Test the Supervisor
@@ -490,7 +657,7 @@ See `frontend/README.md` for full setup details.
 
 ## REST API (FastAPI)
 
-The API exposes the Email Reply Monitoring Agent for frontend dashboards.
+The API exposes all agents, audit, dashboard, supervisor, webhooks, and cron routes.
 
 ### Install dependencies
 
@@ -553,3 +720,16 @@ curl http://localhost:8000/
   ]
 }
 ```
+
+## Documentation
+
+| Doc | Purpose |
+|-----|---------|
+| [`docs/PHASE1_SUPERVISOR.md`](docs/PHASE1_SUPERVISOR.md) | Eight Supervisor responsibilities |
+| [`docs/PHASE1_UAT.md`](docs/PHASE1_UAT.md) | Phase 1 production gate |
+| [`docs/PHASE2_UAT.md`](docs/PHASE2_UAT.md) | Phase 2 + Intake Monday boards |
+| [`docs/PHASE3.md`](docs/PHASE3.md) | Phase 3 vision agents |
+| [`docs/INTAKE_ROLLOUT.md`](docs/INTAKE_ROLLOUT.md) | Intake worker rollout |
+| [`docs/UAT_SIGNOFF_REPORT.md`](docs/UAT_SIGNOFF_REPORT.md) | Engineering sign-off status |
+| [`docs/plan.md`](docs/plan.md) | Build tracker |
+| [`docs/MANAGEMENT_SIGNOFF.md`](docs/MANAGEMENT_SIGNOFF.md) | RBAC sign-off |

@@ -1,6 +1,6 @@
 # AI Automation Dashboard (Next.js)
 
-Dark-themed dashboard for the multi-agent automation system. Connects to the FastAPI backend for email thread analysis and supervisor audit logs.
+Operations dashboard for the multi-agent automation platform. Connects to the FastAPI backend via a BFF proxy (`/api/backend/*`) so the browser never sees the API key.
 
 ## Prerequisites
 
@@ -10,13 +10,6 @@ Start the FastAPI backend first (from the `project/` directory):
 python3 -m uvicorn backend.main:app --reload --port 8000
 ```
 
-The backend must expose:
-
-- `GET /api/email-agent/run`
-- `GET /api/audit-log`
-
-CORS is already enabled on the backend with `allow_origins=["*"]` for local development. **Restrict this in production.**
-
 ## Setup
 
 ```bash
@@ -25,35 +18,50 @@ cp .env.local.example .env.local
 npm install
 ```
 
-## Run the dashboard
+## Run locally
 
 ```bash
 npm run dev
 ```
 
-Open **http://localhost:3000** — it redirects to `/email-agent`.
+Open **http://localhost:3000** — login gate, then role-aware Overview.
 
 ## Pages
 
 | Route | Description |
 |-------|-------------|
-| `/email-agent` | Main dashboard with stats, thread cards, and Run Analysis |
-| `/vendor-agent` | Vendor follow-up dashboard with reminder/escalation status |
-| `/po-agent` | Purchase order drafts for approved projects awaiting release |
-| `/artwork-agent` | Numeric artwork vs spec dimension verification |
-| `/audit-log` | Table view of supervisor audit log entries |
-| `/supervisor` | Live queue depth, task lookup, dead job retry |
+| `/` | Overview — KPIs, pending counts, agent links |
+| `/email-agent` | Gmail thread monitoring |
+| `/vendor-agent` | Monday vendor quote follow-up |
+| `/po-agent` | Salesforce PO readiness |
+| `/artwork-agent` | Numeric + vision artwork verification |
+| `/intake-agent` | Intake submit, review, category correction |
+| `/storefront-agent` | Storefront image search |
+| `/installer-agent` | Installer matching |
+| `/followup-agent` | Stalled project follow-up |
+| `/vision-agents` | Phase 3 vision agents (4 tabs) |
+| `/supervisor` | Queue, jobs, retries, escalations |
+| `/audit-log` | Approve / reject across all agents |
+| `/admin` | Write-back mode, approval rules, operators (admin only) |
+| `/login` | Dashboard password gate |
 
 ## Environment
 
-Set the API base URL in `.env.local`:
+Local `.env.local` (see `.env.local.example`):
 
 ```
 NEXT_PUBLIC_API_URL=http://localhost:8000
+BACKEND_API_KEY=<same as backend API_KEY>
+DASHBOARD_PASSWORD=<dashboard login password>
 ```
 
-If unset, the app falls back to `http://localhost:8000`.
+Production uses `API_BASE_URL` or `NEXT_PUBLIC_API_URL` pointing at the deployed API. The BFF attaches `BACKEND_API_KEY` server-side.
 
-## Production note
+## Production
 
-Update `NEXT_PUBLIC_API_URL` to your deployed API URL and tighten FastAPI CORS to only allow your frontend domain.
+- Dashboard: https://ai-automation-agents-plum.vercel.app
+- API: https://ai-automation-agents-api.vercel.app
+
+Set strong `DASHBOARD_PASSWORD` and `BACKEND_API_KEY` on the Vercel frontend project. Restrict FastAPI `CORS_ALLOWED_ORIGINS` to the exact dashboard origin.
+
+See [`../docs/PHASE1_UAT.md`](../docs/PHASE1_UAT.md) for the full production gate checklist.
