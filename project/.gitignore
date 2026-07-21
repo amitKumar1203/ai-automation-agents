@@ -1,0 +1,22 @@
+# Python / local runtime
+data/
+*.db
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+.env
+credentials.json
+token.json
+token.json.*
+*.token.json
+salesforce_token.json
+.salesforce_pkce.json
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/.env*.local
+.vercel
+.env*

@@ -1,0 +1,14 @@
+frontend/
+.git/
+.venv/
+venv/
+data/
+*.db
+__pycache__/
+.pytest_cache/
+tests/
+*.pyc
+.env
+credentials.json
+token.json
+salesforce_token.json

@@ -1,0 +1,115 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <style>
+      @keyframes softudeFadeUp {
+        from { opacity: 0; transform: translateY(14px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes softudeLogoIn {
+        from { opacity: 0; transform: translateY(-6px) scale(0.96); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+      }
+      @keyframes softudeBadgePop {
+        0% { opacity: 0; transform: scale(0.96); }
+        100% { opacity: 1; transform: scale(1); }
+      }
+      @keyframes softudeCtaPulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.02); }
+      }
+      @keyframes softudeRowReveal {
+        from { opacity: 0; transform: translateX(-8px); }
+        to { opacity: 1; transform: translateX(0); }
+      }
+      .softude-card {
+        animation: softudeFadeUp 0.65s ease-out both;
+      }
+      .softude-header {
+        background: #0b1220;
+      }
+      .softude-logo {
+        animation: softudeLogoIn 0.8s ease-out both;
+      }
+      .softude-title {
+        animation: softudeFadeUp 0.7s ease-out 0.12s both;
+      }
+      .softude-eyebrow {
+        animation: softudeFadeUp 0.7s ease-out 0.2s both;
+      }
+      .softude-badge {
+        animation: softudeBadgePop 0.55s ease-out 0.25s both;
+      }
+      .softude-intro {
+        animation: softudeFadeUp 0.7s ease-out 0.32s both;
+      }
+      .softude-details {
+        animation: softudeFadeUp 0.75s ease-out 0.4s both;
+      }
+      .softude-cta-wrap {
+        animation: softudeFadeUp 0.75s ease-out 0.48s both;
+      }
+      .softude-cta {
+        animation: softudeCtaPulse 2.6s ease-in-out infinite;
+      }
+      .softude-footer {
+        animation: softudeFadeUp 0.7s ease-out 0.55s both;
+      }
+      .softude-row {
+        animation: softudeRowReveal 0.55s ease-out both;
+      }
+      .softude-row-1 { animation-delay: 0.45s; }
+      .softude-row-2 { animation-delay: 0.52s; }
+      .softude-row-3 { animation-delay: 0.59s; }
+      .softude-row-4 { animation-delay: 0.66s; }
+      .softude-row-5 { animation-delay: 0.73s; }
+      .softude-row-6 { animation-delay: 0.8s; }
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body style="margin:0;background:#eef3f7;font-family:Arial,Helvetica,sans-serif;color:#17202a;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef3f7;padding:28px 12px;">
+      <tr><td align="center">
+        <table class="softude-card" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
+          <tr>
+            <td class="softude-header" style="background:#0b1220;padding:24px 28px;border-bottom:3px solid #14b8a6;">
+              <img class="softude-logo" src="https://www.softude.com/wp-content/uploads/2024/11/logo.png" alt="Softude Ops Console" width="140" height="32" style="display:block;border:0;margin-bottom:14px;max-width:140px;height:auto;" />
+              <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#5eead4;font-weight:700;">Softude Ops Console</div>
+              <div style="margin-top:4px;font-size:12px;color:#94a3b8;">Softude AI notification</div>
+              <div class="softude-title" style="margin-top:12px;font-size:24px;line-height:32px;color:#ffffff;font-weight:700;">Quote Request assigned</div>
+              <div class="softude-eyebrow" style="margin-top:6px;font-size:13px;color:#94a3b8;">Intake Agent</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px;">
+              <span class="softude-badge" style="display:inline-block;padding:6px 12px;border-radius:999px;background:#ccfbf1;color:#0f766e;font-size:11px;font-weight:700;letter-spacing:0.7px;text-transform:uppercase;">Quote Request</span>
+              <div class="softude-intro" style="margin:18px 0 22px;font-size:16px;line-height:26px;color:#374151;">
+                A client intake was classified and assigned to your category by <strong>Softude AI</strong>.
+              </div>
+              <table class="softude-details" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;">
+                <tr class="softude-row softude-row-1"><td style="padding:13px 16px;color:#64748b;font-size:13px;">Category</td><td align="right" style="padding:13px 16px;color:#0f172a;font-size:13px;font-weight:700;word-break:break-word;">Quote Request</td></tr><tr class="softude-row softude-row-2"><td style="padding:13px 16px;border-top:1px solid #f1f5f9;color:#64748b;font-size:13px;">Submitted by</td><td align="right" style="padding:13px 16px;border-top:1px solid #f1f5f9;color:#0f172a;font-size:13px;font-weight:700;word-break:break-word;">rahul@clientcompany.com</td></tr><tr class="softude-row softude-row-3"><td style="padding:13px 16px;border-top:1px solid #f1f5f9;color:#64748b;font-size:13px;">Submission ID</td><td align="right" style="padding:13px 16px;border-top:1px solid #f1f5f9;color:#0f172a;font-size:13px;font-weight:700;word-break:break-word;">DEMO-001</td></tr><tr class="softude-row softude-row-4"><td style="padding:13px 16px;border-top:1px solid #f1f5f9;color:#64748b;font-size:13px;">Request</td><td align="right" style="padding:13px 16px;border-top:1px solid #f1f5f9;color:#0f172a;font-size:13px;font-weight:700;word-break:break-word;">Need acrylic signage quote for lobby, size 4x2 ft.</td></tr>
+              </table>
+              <div class="softude-cta-wrap" style="margin-top:26px;"><a class="softude-cta" href="https://monday.com/boards/demo" style="display:inline-block;background:#14b8a6;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-size:14px;font-weight:700;">Open in Monday</a></div>
+              <p style="margin:24px 0 0;font-size:12px;line-height:18px;color:#94a3b8;">You received this because you are the configured owner for this Intake category in Softude Ops Console.</p>
+            </td>
+          </tr>
+          <tr>
+            <td class="softude-footer" style="padding:16px 28px 22px;background:#ffffff;border-top:1px solid #e2e8f0;">
+              <div style="font-size:11px;letter-spacing:0.4px;color:#94a3b8;text-align:center;">
+                Powered by <strong style="color:#0f766e;">Softude AI</strong> · Softude Ops Console
+              </div>
+            </td>
+          </tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>
