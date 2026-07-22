@@ -12,7 +12,7 @@ from models.agent_result import AgentResult
 
 # Built-in defaults used when DB has no override.
 DEFAULT_RISKY_STATUS_MAP: dict[str, set[str]] = {
-    "email_reply_monitoring": {"UNANSWERED"},
+    "email_reply_monitoring": {"UNANSWERED", "CRITICAL"},
     "vendor_followup": {"SEND_REMINDER", "ESCALATE"},
     "po_automation": {"PO_READY_FOR_RELEASE"},
     "artwork_verification": {"MISMATCH", "UNCERTAIN"},

@@ -9,7 +9,7 @@ class AgentCardResponse(BaseModel):
     """Single thread analysis result formatted for the dashboard UI."""
 
     thread_id: str
-    status: str  # "UNANSWERED" or "OK"
+    status: str  # "OK" | "AT_RISK" | "UNANSWERED" | "CRITICAL"
     last_sender: str  # "team" | "internal" | "client"
     last_message_text: str
     last_message_timestamp: str  # ISO format
@@ -19,6 +19,9 @@ class AgentCardResponse(BaseModel):
     reasoning: str
     client_email: str = ""
     subject: str = ""
+    priority: str = "normal"  # "high" | "normal"
+    urgency_keywords: list[str] = Field(default_factory=list)
+    draft_reply: str = ""
 
 
 class AnalysisSummaryResponse(BaseModel):
@@ -26,6 +29,8 @@ class AnalysisSummaryResponse(BaseModel):
 
     total_threads: int
     unanswered_count: int
+    at_risk_count: int = 0
+    critical_count: int = 0
     ok_count: int
     results: list[AgentCardResponse]
     owner_notify: dict | None = None

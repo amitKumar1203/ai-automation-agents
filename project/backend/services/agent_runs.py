@@ -48,8 +48,11 @@ def run_email_batch(
     batch = _supervisor.run_batch("email_reply_monitoring", threads, task_ids)
 
     unanswered: list[dict[str, Any]] = []
+    at_risk_count = 0
+    critical_count = 0
     ok_count = 0
     results: list[dict[str, Any]] = []
+    _needs_reply = frozenset({"UNANSWERED", "CRITICAL"})
 
     for entry in batch["results"]:
         thread = next(t for t in threads if t.thread_id == entry["task_id"])
@@ -57,20 +60,30 @@ def run_email_batch(
         if thread.messages:
             last = thread.messages[-1]
             hours = float(result.data.get("hours_pending", 0.0))
-            status = (
-                "UNANSWERED"
-                if hours > EmailReplyMonitoringAgent.THRESHOLD_HOURS
-                and last.sender in EXTERNAL_SENDER_TYPES
-                else "OK"
+            # Prefer agent SLA status; fall back only if missing.
+            status = str(result.data.get("status") or "OK")
+            if status not in {"OK", "AT_RISK", "UNANSWERED", "CRITICAL"}:
+                status = (
+                    "UNANSWERED"
+                    if hours > EmailReplyMonitoringAgent.THRESHOLD_HOURS
+                    and last.sender in EXTERNAL_SENDER_TYPES
+                    else "OK"
+                )
+            client_email = str(result.data.get("client_email") or "")
+            if not client_email:
+                if last.sender in EXTERNAL_SENDER_TYPES and last.sender_email:
+                    client_email = last.sender_email
+                else:
+                    for msg in reversed(thread.messages):
+                        if msg.sender in EXTERNAL_SENDER_TYPES and msg.sender_email:
+                            client_email = msg.sender_email
+                            break
+            urgency_raw = result.data.get("urgency_keywords") or []
+            urgency_keywords = (
+                [str(k) for k in urgency_raw]
+                if isinstance(urgency_raw, list)
+                else []
             )
-            client_email = ""
-            if last.sender in EXTERNAL_SENDER_TYPES and last.sender_email:
-                client_email = last.sender_email
-            else:
-                for msg in reversed(thread.messages):
-                    if msg.sender in EXTERNAL_SENDER_TYPES and msg.sender_email:
-                        client_email = msg.sender_email
-                        break
             card = {
                 "thread_id": thread.thread_id,
                 "status": status,
@@ -82,7 +95,10 @@ def run_email_batch(
                 "requires_approval": entry["final_approval_needed"],
                 "reasoning": result.reasoning,
                 "client_email": client_email,
-                "subject": thread.subject or "",
+                "subject": thread.subject or str(result.data.get("subject") or ""),
+                "priority": str(result.data.get("priority") or "normal"),
+                "urgency_keywords": urgency_keywords,
+                "draft_reply": str(result.data.get("draft_reply") or ""),
             }
         else:
             card = {
@@ -97,16 +113,36 @@ def run_email_batch(
                 "reasoning": result.reasoning,
                 "client_email": "",
                 "subject": thread.subject or "",
+                "priority": "normal",
+                "urgency_keywords": [],
+                "draft_reply": "",
             }
         results.append(card)
-        if card["status"] == "UNANSWERED":
+        if card["status"] in _needs_reply:
             unanswered.append(card)
+            if card["status"] == "CRITICAL":
+                critical_count += 1
+        elif card["status"] == "AT_RISK":
+            at_risk_count += 1
         else:
             ok_count += 1
+
+    # Sort: CRITICAL → UNANSWERED → AT_RISK → OK, then high priority, then hours desc.
+    _sev = {"CRITICAL": 0, "UNANSWERED": 1, "AT_RISK": 2, "OK": 3}
+    _pri = {"high": 0, "normal": 1}
+    results.sort(
+        key=lambda c: (
+            _sev.get(str(c.get("status")), 9),
+            _pri.get(str(c.get("priority")), 9),
+            -float(c.get("hours_pending") or 0),
+        )
+    )
 
     summary = {
         "total_threads": len(results),
         "unanswered_count": len(unanswered),
+        "at_risk_count": at_risk_count,
+        "critical_count": critical_count,
         "ok_count": ok_count,
         "results": results,
     }
@@ -115,6 +151,8 @@ def run_email_batch(
         {
             "total_threads": summary["total_threads"],
             "unanswered_count": summary["unanswered_count"],
+            "at_risk_count": summary["at_risk_count"],
+            "critical_count": summary["critical_count"],
             "ok_count": summary["ok_count"],
         },
     )

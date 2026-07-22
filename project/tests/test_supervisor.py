@@ -28,6 +28,19 @@ class _LowConfidenceAgent(BaseAgent):
 NOW = datetime(2026, 7, 14, 12, 0, 0, tzinfo=timezone.utc)
 
 
+@pytest.fixture(autouse=True)
+def _force_email_sla_defaults() -> None:
+    """Isolate email SLA from project/.env demo overrides (e.g. 0.0167h)."""
+    from agents.email_reply_agent import EmailReplyMonitoringAgent
+
+    previous = EmailReplyMonitoringAgent.THRESHOLD_HOURS
+    EmailReplyMonitoringAgent.THRESHOLD_HOURS = 24.0
+    try:
+        yield
+    finally:
+        EmailReplyMonitoringAgent.THRESHOLD_HOURS = previous
+
+
 def test_register_and_retrieve_agent() -> None:
     """Registered agents can be looked up by name."""
     agent = get_agent("email_reply_monitoring")
@@ -40,12 +53,14 @@ def test_register_and_retrieve_agent() -> None:
 def test_execute_task_returns_expected_structure() -> None:
     """execute_task should return agent name, task id, result, and approval flag."""
     supervisor = Supervisor()
+    # 30h ago → UNANSWERED band (past 24h SLA, under 48h critical).
+    pending_since = datetime.now(timezone.utc) - timedelta(hours=30)
     thread = EmailThread(
         thread_id="TEST-1",
         messages=[
             EmailMessage(
                 sender="client",
-                timestamp=NOW - timedelta(hours=30),
+                timestamp=pending_since,
             )
         ],
     )
@@ -68,17 +83,18 @@ def test_execute_task_returns_expected_structure() -> None:
 def test_run_batch_aggregates_counts_correctly() -> None:
     """run_batch should aggregate approval counts across tasks."""
     supervisor = Supervisor()
+    now = datetime.now(timezone.utc)
     threads = [
         EmailThread(
             thread_id="BATCH-1",
             messages=[
-                EmailMessage(sender="client", timestamp=NOW - timedelta(hours=30))
+                EmailMessage(sender="client", timestamp=now - timedelta(hours=30))
             ],
         ),
         EmailThread(
             thread_id="BATCH-2",
             messages=[
-                EmailMessage(sender="team", timestamp=NOW - timedelta(hours=1))
+                EmailMessage(sender="team", timestamp=now - timedelta(hours=1))
             ],
         ),
     ]

@@ -1,5 +1,8 @@
 /** Status returned for each email thread analysis result. */
-export type ThreadStatus = "UNANSWERED" | "OK";
+export type ThreadStatus = "OK" | "AT_RISK" | "UNANSWERED" | "CRITICAL";
+
+/** Urgency priority from keyword scoring. */
+export type EmailPriority = "high" | "normal";
 
 /** Status returned for each vendor quote request analysis result. */
 export type VendorStatus =
@@ -91,6 +94,12 @@ export interface ThreadResult {
   client_email?: string;
   /** Thread subject from Gmail headers. */
   subject?: string;
+  /** Keyword urgency: high | normal. */
+  priority?: EmailPriority | string;
+  /** Matched urgency keywords from subject/body. */
+  urgency_keywords?: string[];
+  /** Suggested reply for reviewer to send. */
+  draft_reply?: string;
 }
 
 /** Connected Gmail account for the app header avatar. */
@@ -336,6 +345,8 @@ export interface IntakeAnalysisSummary {
 export interface AnalysisSummaryResponse {
   total_threads: number;
   unanswered_count: number;
+  at_risk_count?: number;
+  critical_count?: number;
   ok_count: number;
   results: ThreadResult[];
 }
