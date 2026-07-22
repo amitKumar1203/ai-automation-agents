@@ -1,8 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useCallback, useId, useState } from "react";
-import { Check, ChevronRight, Copy } from "lucide-react";
+import { useId } from "react";
+import { ChevronRight } from "lucide-react";
 
 import StatusPill from "@/components/StatusPill";
 import ProfileAvatar from "@/components/ProfileAvatar";
@@ -79,13 +79,6 @@ function EmailBody({ text }: { text: string }): ReactNode {
   );
 }
 
-function borderClass(status: ThreadResult["status"]): string {
-  if (status === "CRITICAL") return "border-l-accent-red";
-  if (status === "UNANSWERED") return "border-l-accent-amber";
-  if (status === "AT_RISK") return "border-l-accent-primary";
-  return "border-l-accent-green";
-}
-
 /** Collapsible card for one analyzed Gmail thread. */
 export default function ThreadCard({
   thread,
@@ -93,7 +86,6 @@ export default function ThreadCard({
   onToggle,
 }: ThreadCardProps): ReactNode {
   const panelId = useId();
-  const [copied, setCopied] = useState(false);
 
   const hours =
     typeof thread.hours_pending === "number"
@@ -106,9 +98,6 @@ export default function ThreadCard({
   const body = toPlainMessageText(thread.last_message_text);
   const subject = (thread.subject || "").trim();
   const fromEmail = (thread.client_email || "").trim();
-  const draft = (thread.draft_reply || "").trim();
-  const priority = (thread.priority || "normal").toLowerCase();
-  const keywords = thread.urgency_keywords ?? [];
   const senderLabel =
     thread.last_sender === "client"
       ? "Client"
@@ -123,26 +112,16 @@ export default function ThreadCard({
       : thread.last_sender === "internal"
         ? "bg-slate-500/15 text-slate-400"
         : "bg-white/5 text-slate-300";
-  const needsAttention =
-    thread.status === "UNANSWERED" ||
-    thread.status === "CRITICAL" ||
-    thread.status === "AT_RISK";
+  const needsReply = thread.status === "UNANSWERED";
   const headline = subject || previewMessage(body);
-
-  const copyDraft = useCallback(async () => {
-    if (!draft) return;
-    try {
-      await navigator.clipboard.writeText(draft);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1600);
-    } catch {
-      setCopied(false);
-    }
-  }, [draft]);
 
   return (
     <article
-      className={`motion-rise premium-card premium-card-hover overflow-hidden border-l-[3px] ${borderClass(thread.status)}`}
+      className={`motion-rise premium-card premium-card-hover overflow-hidden border-l-[3px] ${
+        needsReply
+          ? "border-l-accent-amber"
+          : "border-l-accent-green"
+      }`}
     >
       <button
         type="button"
@@ -163,11 +142,6 @@ export default function ThreadCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <StatusPill status={thread.status} />
-            {priority === "high" && (
-              <span className="rounded-full bg-accent-red/15 px-2 py-0.5 text-[11px] font-semibold text-accent-red">
-                High priority
-              </span>
-            )}
             <span
               className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${senderChipClass}`}
             >
@@ -193,18 +167,10 @@ export default function ThreadCard({
             </span>
             <span aria-hidden="true">·</span>
             <span className="font-mono">{hours} pending</span>
-            {!open && needsAttention && (
+            {!open && needsReply && (
               <>
                 <span aria-hidden="true">·</span>
-                <span
-                  className={`font-medium ${
-                    thread.status === "CRITICAL"
-                      ? "text-accent-red"
-                      : thread.status === "AT_RISK"
-                        ? "text-accent-primary"
-                        : "text-accent-amber"
-                  }`}
-                >
+                <span className="font-medium text-accent-amber">
                   Needs attention
                 </span>
               </>
@@ -214,6 +180,7 @@ export default function ThreadCard({
       </button>
 
       <div id={panelId} hidden={!open} className="border-t border-surface-border px-4 pb-5 pt-4 sm:px-5">
+        {/* Gmail-style reading pane */}
         <div className="overflow-hidden rounded-xl border border-white/5 bg-background">
           <div className="border-b border-white/5 px-4 py-3 sm:px-5">
             <h3 className="text-base font-semibold leading-snug text-white">
@@ -251,52 +218,8 @@ export default function ThreadCard({
           </div>
         </div>
 
-        {keywords.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {keywords.map((kw) => (
-              <span
-                key={kw}
-                className="rounded-md bg-accent-red/10 px-2 py-0.5 text-[11px] font-medium text-accent-red"
-              >
-                {kw}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {draft ? (
-          <div className="mt-4 overflow-hidden rounded-xl border border-accent-primary/20 bg-accent-primary/5">
-            <div className="flex items-center justify-between gap-2 border-b border-accent-primary/15 px-3 py-2">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-accent-primary">
-                Suggested reply
-              </p>
-              <button
-                type="button"
-                onClick={() => void copyDraft()}
-                className="button-press inline-flex items-center gap-1.5 rounded-lg border border-surface-border bg-surface-card px-2.5 py-1 text-[11px] font-semibold text-slate-300 hover:text-white"
-              >
-                {copied ? (
-                  <>
-                    <Check className="h-3 w-3 text-accent-green" aria-hidden />
-                    Copied
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-3 w-3" aria-hidden />
-                    Copy
-                  </>
-                )}
-              </button>
-            </div>
-            <pre className="whitespace-pre-wrap break-words px-3 py-3 font-sans text-sm leading-relaxed text-slate-200">
-              {draft}
-            </pre>
-          </div>
-        ) : null}
-
-        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="mt-4 grid grid-cols-3 gap-2">
           <MetaChip label="Pending" value={hours} />
-          <MetaChip label="Priority" value={priority === "high" ? "High" : "Normal"} />
           <MetaChip label="Confidence" value={confidence} />
           <MetaChip
             label="Approval"

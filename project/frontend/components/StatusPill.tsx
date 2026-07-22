@@ -11,8 +11,6 @@ interface StatusPillProps {
 
 const pillStyles: Record<AgentStatus, string> = {
   UNANSWERED: "status-warning text-accent-amber ring-1 ring-accent-amber/35",
-  AT_RISK: "status-accent text-accent-primary ring-1 ring-accent-primary/35",
-  CRITICAL: "status-danger text-accent-red ring-1 ring-accent-red/35",
   OK: "status-success text-accent-green ring-1 ring-accent-green/30",
   WAITING: "status-accent text-accent-primary ring-1 ring-accent-primary/35",
   SEND_REMINDER:
@@ -66,9 +64,7 @@ const pillStyles: Record<AgentStatus, string> = {
 };
 
 const pillLabels: Partial<Record<AgentStatus, string>> = {
-  UNANSWERED: "Overdue",
-  AT_RISK: "At risk",
-  CRITICAL: "Critical",
+  UNANSWERED: "Needs reply",
   OK: "All clear",
   WAITING: "Waiting",
   SEND_REMINDER: "Send reminder",

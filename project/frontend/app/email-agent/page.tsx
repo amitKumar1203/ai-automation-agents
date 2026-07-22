@@ -12,14 +12,7 @@ import ThreadCard from "@/components/ThreadCard";
 import { fetchEmailAgentRun } from "@/lib/api";
 import type { AnalysisSummaryResponse, ThreadStatus } from "@/lib/types";
 
-type FilterKey = "all" | ThreadStatus | "needs_reply";
-
-const SEVERITY_ORDER: Record<string, number> = {
-  CRITICAL: 0,
-  UNANSWERED: 1,
-  AT_RISK: 2,
-  OK: 3,
-};
+type FilterKey = "all" | ThreadStatus;
 
 /** Email Reply Monitoring dashboard — live Gmail inbox only. */
 export default function EmailAgentPage() {
@@ -66,36 +59,21 @@ export default function EmailAgentPage() {
     if (filter === "all") {
       return data.results;
     }
-    if (filter === "needs_reply") {
-      return data.results.filter(
-        (thread) =>
-          thread.status === "UNANSWERED" || thread.status === "CRITICAL",
-      );
-    }
     return data.results.filter((thread) => thread.status === filter);
   }, [data, filter]);
 
   const orderedThreads = useMemo(() => {
     return [...threads].sort((a, b) => {
-      const sev =
-        (SEVERITY_ORDER[a.status] ?? 9) - (SEVERITY_ORDER[b.status] ?? 9);
-      if (sev !== 0) return sev;
-      const aPri = (a.priority || "normal") === "high" ? 0 : 1;
-      const bPri = (b.priority || "normal") === "high" ? 0 : 1;
-      if (aPri !== bPri) return aPri - bPri;
-      const aTime = a.hours_pending || 0;
-      const bTime = b.hours_pending || 0;
+      const aTime = new Date(a.last_message_timestamp).getTime() || 0;
+      const bTime = new Date(b.last_message_timestamp).getTime() || 0;
       return bTime - aTime;
     });
   }, [threads]);
 
-  // Keep exactly one thread open: the highest-severity (first) in the current list.
+  // Keep exactly one thread open: the newest (first) in the current list.
   useEffect(() => {
     setOpenThreadId(orderedThreads[0]?.thread_id ?? null);
   }, [orderedThreads]);
-
-  const atRiskCount = data?.at_risk_count ?? 0;
-  const criticalCount = data?.critical_count ?? 0;
 
   return (
     <div className="page-shell">
@@ -104,8 +82,8 @@ export default function EmailAgentPage() {
           <p className="page-eyebrow">No client email left unanswered</p>
           <h1 className="page-title">Email Reply Monitoring</h1>
           <p className="page-subtitle">
-            SLA bands, urgency scoring, and suggested replies — so overdue
-            client threads surface before they escalate
+            Monitors client email threads, detects unanswered conversations,
+            measures response time, notifies owners
           </p>
         </div>
         <RunAnalysisButton loading={loading} onClick={() => void loadData()} />
@@ -170,46 +148,32 @@ export default function EmailAgentPage() {
 
       {data && (
         <>
-          <section className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <section className="mb-6 grid gap-3 sm:grid-cols-3">
             <StatCard label="Total threads" value={data.total_threads} delayMs={60} />
             <StatCard
-              label="Critical"
-              value={criticalCount}
-              color="red"
-              delayMs={100}
-            />
-            <StatCard
-              label="Overdue"
+              label="Needs reply"
               value={data.unanswered_count}
               color="amber"
-              delayMs={140}
-            />
-            <StatCard
-              label="At risk"
-              value={atRiskCount}
-              color="blue"
-              delayMs={180}
+              delayMs={120}
             />
             <StatCard
               label="All clear"
               value={data.ok_count}
               color="green"
-              delayMs={220}
+              delayMs={180}
             />
           </section>
 
           <div className="mb-4">
             <div
-              className="inline-flex flex-wrap rounded-control border border-surface-border bg-surface-card p-1"
+              className="inline-flex rounded-control border border-surface-border bg-surface-card p-1"
               role="tablist"
               aria-label="Filter threads"
             >
               {(
                 [
                   ["all", "All", data.total_threads],
-                  ["needs_reply", "Needs reply", data.unanswered_count],
-                  ["CRITICAL", "Critical", criticalCount],
-                  ["AT_RISK", "At risk", atRiskCount],
+                  ["UNANSWERED", "Needs reply", data.unanswered_count],
                   ["OK", "All clear", data.ok_count],
                 ] as const
               ).map(([key, label, count]) => {

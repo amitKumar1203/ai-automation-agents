@@ -62,7 +62,6 @@ def test_vendor_risky_status_with_low_confidence_still_true() -> None:
 def test_email_unanswered_forces_approval() -> None:
     """UNANSWERED is a risky status for email_reply_monitoring (HITL)."""
     assert "UNANSWERED" in RISKY_STATUS_MAP["email_reply_monitoring"]
-    assert "CRITICAL" in RISKY_STATUS_MAP["email_reply_monitoring"]
     result = AgentResult(
         data={"thread_id": "T-1", "hours_pending": 30.0, "status": "UNANSWERED"},
         confidence=1.0,
@@ -70,28 +69,6 @@ def test_email_unanswered_forces_approval() -> None:
         reasoning="overdue",
     )
     assert requires_human_approval("email_reply_monitoring", result) is True
-
-
-def test_email_critical_forces_approval() -> None:
-    """CRITICAL is a risky status for email_reply_monitoring (HITL)."""
-    result = AgentResult(
-        data={"thread_id": "T-1", "hours_pending": 50.0, "status": "CRITICAL"},
-        confidence=1.0,
-        requires_approval=False,
-        reasoning="critical",
-    )
-    assert requires_human_approval("email_reply_monitoring", result) is True
-
-
-def test_email_at_risk_does_not_force_approval() -> None:
-    """AT_RISK is visibility-only and does not require approval at high confidence."""
-    result = AgentResult(
-        data={"thread_id": "T-1", "hours_pending": 20.0, "status": "AT_RISK"},
-        confidence=1.0,
-        requires_approval=False,
-        reasoning="approaching",
-    )
-    assert requires_human_approval("email_reply_monitoring", result) is False
 
 
 def test_email_ok_does_not_force_approval() -> None:
@@ -134,7 +111,7 @@ def test_get_risky_statuses_helper() -> None:
     assert get_risky_statuses("vendor_followup") == {"SEND_REMINDER", "ESCALATE"}
     assert get_risky_statuses("po_automation") == {"PO_READY_FOR_RELEASE"}
     assert get_risky_statuses("artwork_verification") == {"MISMATCH", "UNCERTAIN"}
-    assert get_risky_statuses("email_reply_monitoring") == {"UNANSWERED", "CRITICAL"}
+    assert get_risky_statuses("email_reply_monitoring") == {"UNANSWERED"}
     assert get_risky_statuses("unknown_agent") == set()
 
 

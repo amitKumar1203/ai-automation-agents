@@ -31,7 +31,7 @@ Multi-agent automation system with a **Supervisor + Agents** architecture. Twelv
 
 | Agent | Registry name | Risky statuses (HITL) |
 |-------|---------------|------------------------|
-| Email Reply Monitoring | `email_reply_monitoring` | `UNANSWERED`, `CRITICAL` |
+| Email Reply Monitoring | `email_reply_monitoring` | `UNANSWERED` |
 | Vendor Follow-Up | `vendor_followup` | `SEND_REMINDER`, `ESCALATE` |
 | PO Automation | `po_automation` | `PO_READY_FOR_RELEASE` |
 | Artwork Verification | `artwork_verification` | `MISMATCH`, `UNCERTAIN` |
@@ -50,16 +50,7 @@ Multi-agent automation system with a **Supervisor + Agents** architecture. Twelv
 
 ### Email Reply Monitoring Agent
 
-Rule-based agent that flags client email threads where the last message is from the client and has been pending too long. SLA bands (default 24h threshold):
-
-| Status | When | HITL |
-|--------|------|------|
-| `OK` | Under 75% of SLA | No |
-| `AT_RISK` | 75%–100% of SLA | No (visibility) |
-| `UNANSWERED` | Past SLA, under 2× | Yes |
-| `CRITICAL` | Past 2× SLA | Yes |
-
-Also scores **urgency** from keywords (asap, cancel, complaint, …) and attaches a **suggested reply** draft on any thread that needs attention.
+Rule-based agent that flags client email threads where the last message is from the client and has been pending for more than 24 hours.
 
 ### Real Gmail Integration
 
@@ -487,7 +478,7 @@ the Supervisor decides whether human approval is required.
 
   ```python
   RISKY_STATUS_MAP = {
-      "email_reply_monitoring": {"UNANSWERED", "CRITICAL"},
+      "email_reply_monitoring": {"UNANSWERED"},
       "vendor_followup": {"SEND_REMINDER", "ESCALATE"},
       "po_automation": {"PO_READY_FOR_RELEASE"},
       "artwork_verification": {"MISMATCH", "UNCERTAIN"},
@@ -527,7 +518,7 @@ Already-decided entries cannot be changed again (API returns HTTP 409).
 
 | Agent | Action |
 |-------|--------|
-| `email_reply_monitoring` (`UNANSWERED`, `CRITICAL`) | Owner notify email; optional client ack when enabled |
+| `email_reply_monitoring` (`UNANSWERED`) | Owner notify email; optional client ack when enabled |
 | `vendor_followup` (`SEND_REMINDER` / `ESCALATE`) | Notify owner; on escalate, set Monday Quote Received → Escalate |
 | `po_automation` (`PO_READY_FOR_RELEASE`) | Mark Salesforce `PO_Exists__c`; optional PO object create |
 | `artwork_verification` (`MISMATCH` / `UNCERTAIN`) | Owner notify (or log-only if no owner email) |

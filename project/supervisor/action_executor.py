@@ -326,7 +326,7 @@ def _execute_email_notify(
         "mode": mode,
     }
 
-    if status not in {"UNANSWERED", "CRITICAL"}:
+    if status != "UNANSWERED":
         return {
             "execution_status": "SKIPPED",
             "execution_detail": f"Email status '{status}' has no write-back",
@@ -350,9 +350,6 @@ def _execute_email_notify(
         subject, body_text, body_html = build_email_overdue_notify(
             thread_id=str(thread_id or "—"),
             hours_pending=hours_pending or "—",
-            status=status,
-            priority=str(data.get("priority") or "normal"),
-            draft_reply=str(data.get("draft_reply") or ""),
         )
         results["effects"]["owner_email"] = email_fn(
             to=owner,
